@@ -1,0 +1,9 @@
+LICENSE
+README.md
+pyproject.toml
+src/onsaemiro/__init__.py
+src/onsaemiro.egg-info/PKG-INFO
+src/onsaemiro.egg-info/SOURCES.txt
+src/onsaemiro.egg-info/dependency_links.txt
+src/onsaemiro.egg-info/requires.txt
+src/onsaemiro.egg-info/top_level.txt
