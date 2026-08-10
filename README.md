@@ -216,7 +216,8 @@ results = list(
 
 ## Version History
 
-* **v1.0.0 (24 Jul 2026)**: Initial Onsaemiro release, based on the final DataGraph 3.1.0 implementation.
+- **v1.0.1 (10 Aug 2026)**: Refactored the internal package structure while preserving the public API.
+- **v1.0.0 (24 Jul 2026)**: Initial Onsaemiro release, based on the final DataGraph 3.1.0 implementation.
 
 ***
 
