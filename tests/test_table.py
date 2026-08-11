@@ -1,0 +1,52 @@
+"""Tests for TableMaker rendering and row insertion functionality."""
+
+import pytest
+import onsaemiro as osm
+
+
+def test_table_maker_add_row_variants():
+    """Verify add_row supports positional arguments, lists, and tuples."""
+    table = osm.TableMaker(
+        title="Thermodynamics & Kinetics Summary",
+        columns=["Parameter", "Value", "Unit"],
+    )
+
+    # 1. Positional arguments
+    table.add_row("Temperature", 400.0, "K")
+    table.add_row("Equivalence Ratio", 1.000, "-")
+
+    # 2. Single list
+    table.add_row(["Pressure", 101.3, "kPa"])
+    table.add_row(["Laminar Flame Speed", 0.3850, "m/s"])
+
+    # 3. Single tuple
+    table.add_row(("Density", 1.184, "kg/m^3"))
+
+    # Assertions on internal string representations
+    assert len(table.data) == 5
+    assert table.data[0] == ["Temperature", "400.0", "K"]
+    assert table.data[2] == ["Pressure", "101.3", "kPa"]
+    assert table.data[4] == ["Density", "1.184", "kg/m^3"]
+
+
+def test_table_maker_render_output(capsys):
+    """Verify standard text rendering output in console mode."""
+    table = osm.TableMaker(
+        title="Species Concentration",
+        columns=["Species", "Mole Fraction"],
+    )
+    table.add_row("CH4", 0.0950)
+    table.add_row(["O2", 0.1900])
+
+    table.display()
+    captured = capsys.readouterr()
+
+    assert "Species Concentration" in captured.out
+    assert "CH4" in captured.out
+    assert "0.19" in captured.out
+
+
+def test_invalid_mode():
+    """Verify ValueError when passing an unsupported table mode."""
+    with pytest.raises(ValueError, match="Unknown mode 'invalid'"):
+        osm.TableMaker(mode="invalid")

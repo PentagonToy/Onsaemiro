@@ -109,7 +109,17 @@ class TableMaker:
     # ── Row management ──
 
     def add_row(self, *values):
-        self.data.append([str(v) for v in values])
+        """Add a row to the table.
+        Accepts either positional arguments or a single list/tuple:
+            table.add_row("a", "b", "c")
+            table.add_row(["a", "b", "c"])
+        """
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            row = values[0]
+        else:
+            row = values
+
+        self.data.append([str(v) for v in row])
         if self.mode in ("live", "dynamic"):
             self._update()
 
