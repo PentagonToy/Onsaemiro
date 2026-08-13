@@ -29,6 +29,78 @@ def test_table_maker_add_row_variants():
     assert table.data[4] == ["Density", "1.184", "kg/m^3"]
 
 
+def test_table_maker_update_row_variants():
+    """Verify update_row replaces rows using supported input forms."""
+    table = osm.TableMaker(
+        title="Build Status",
+        columns=["Component", "Status"],
+    )
+    table.add_row("SmartRedis", "Pending")
+    table.add_row("OpenFOAM", "Pending")
+
+    table.update_row(0, "SmartRedis", "Building")
+    table.update_row(1, ["OpenFOAM", "Done"])
+
+    assert table.data == [
+        ["SmartRedis", "Building"],
+        ["OpenFOAM", "Done"],
+    ]
+
+
+def test_table_maker_update_row_refreshes_live_table(monkeypatch):
+    """Verify live tables refresh after an existing row changes."""
+    table = osm.TableMaker(
+        title="Build Status",
+        columns=["Component", "Status"],
+        mode="live",
+    )
+    updates = []
+
+    monkeypatch.setattr(
+        table,
+        "_update",
+        lambda: updates.append(
+            tuple(tuple(row) for row in table.data)
+        ),
+    )
+
+    table.add_row("SmartRedis", "Pending")
+    table.update_row(0, "SmartRedis", "Done")
+
+    assert updates == [
+        (("SmartRedis", "Pending"),),
+        (("SmartRedis", "Done"),),
+    ]
+
+
+def test_table_maker_update_row_rejects_invalid_index():
+    """Verify update_row validates row indices."""
+    table = osm.TableMaker()
+    table.add_row("Temperature", "400", "K")
+
+    with pytest.raises(
+        TypeError,
+        match="Row index must be an integer",
+    ):
+        table.update_row(
+            "0",
+            "Temperature",
+            "500",
+            "K",
+        )
+
+    with pytest.raises(
+        IndexError,
+        match="Row index out of range: 2",
+    ):
+        table.update_row(
+            2,
+            "Temperature",
+            "500",
+            "K",
+        )
+
+
 def test_table_maker_render_output(capsys):
     """Verify standard text rendering output in console mode."""
     table = osm.TableMaker(

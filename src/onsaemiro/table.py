@@ -123,6 +123,26 @@ class TableMaker:
         if self.mode in ("live", "dynamic"):
             self._update()
 
+    def update_row(self, index, *values):
+        """Replace an existing row and refresh live output."""
+        if not isinstance(index, int) or isinstance(index, bool):
+            raise TypeError("Row index must be an integer.")
+
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            row = values[0]
+        else:
+            row = values
+
+        try:
+            self.data[index] = [str(v) for v in row]
+        except IndexError as error:
+            raise IndexError(
+                f"Row index out of range: {index}"
+            ) from error
+
+        if self.mode in ("live", "dynamic"):
+            self._update()
+
     # ── Update logic ──
 
     def _update(self):
