@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "onsaemiro"
-version = "1.0.2"
+version = "1.0.3"
 description = "Publication-quality scientific visualisation and reporting utilities"
 readme = "README.md"
 requires-python = ">=3.10"
