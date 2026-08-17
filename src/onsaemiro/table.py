@@ -23,8 +23,10 @@ class TableMaker:
         self.data = []
         self.mode = mode
         self._jupyter = _is_jupyter()
-        self._prev_lines = 0
         self._handle = None
+        self._console = None
+        self._live = None
+        self._closed = False
 
     # ── Renderers ──
 
@@ -81,30 +83,53 @@ class TableMaker:
             f'<tbody>{body}</tbody></table></div>'
         )
 
-    def _render_text(self):
-        """Rich-formatted text for terminal only. rich is imported lazily
-        so it is not a hard dependency for users who never call display()
-        or add_row() in live/dynamic mode."""
-        from rich.console import Console
+    def _render_rich_table(self):
+        """Build the Rich table used by terminal renderers."""
         from rich.table import Table
         from rich.text import Text
 
-        buf = StringIO()
-        # Text objects are always literal — square brackets in data can
-        # never be misread as Rich console markup (e.g. "[phi=0.4]").
-        t = Table(title=Text(str(self.title)))
-        for i, col in enumerate(self.columns):
-            t.add_column(Text(str(col)), justify="left" if i == 0 else "right")
+        table = Table(
+            title=Text(str(self.title))
+        )
+
+        for index, column in enumerate(
+            self.columns
+        ):
+            table.add_column(
+                Text(str(column)),
+                justify=(
+                    "left"
+                    if index == 0
+                    else "right"
+                ),
+            )
+
         for row in self.data:
-            t.add_row(*[Text(str(v)) for v in row])
+            table.add_row(
+                *[
+                    Text(str(value))
+                    for value in row
+                ]
+            )
+
+        return table
+
+    def _render_text(self):
+        """Render a static Rich-formatted terminal table."""
+        from rich.console import Console
+
+        buffer = StringIO()
 
         Console(
-            file=buf,
+            file=buffer,
             force_jupyter=False,
             force_terminal=sys.stdout.isatty(),
             width=120,
-        ).print(t)
-        return buf.getvalue()
+        ).print(
+            self._render_rich_table()
+        )
+
+        return buffer.getvalue()
 
     # ── Row management ──
 
@@ -152,12 +177,33 @@ class TableMaker:
             self._update_terminal()
 
     def _update_terminal(self):
-        if self._prev_lines > 0:
-            sys.stdout.write(f"\033[{self._prev_lines}A\033[J")
-        text = self._render_text()
-        sys.stdout.write(text)
-        sys.stdout.flush()
-        self._prev_lines = text.count("\n")
+        if not sys.stdout.isatty():
+            return
+
+        from rich.console import Console
+        from rich.live import Live
+
+        renderable = self._render_rich_table()
+
+        if self._live is None:
+            self._console = Console(
+                file=sys.stdout,
+                force_jupyter=False,
+            )
+            self._live = Live(
+                renderable,
+                console=self._console,
+                auto_refresh=False,
+                transient=False,
+            )
+            self._live.start(
+                refresh=True
+            )
+        else:
+            self._live.update(
+                renderable,
+                refresh=True,
+            )
 
     def _update_jupyter(self):
         from IPython.display import display, HTML
@@ -166,6 +212,29 @@ class TableMaker:
             self._handle = display(html, display_id=True)
         else:
             self._handle.update(html)
+
+    # ── Lifecycle ──
+
+    def close(self):
+        """Finish live output and preserve the final table."""
+        if self._closed:
+            return
+
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
+            self._console = None
+        elif (
+            not self._jupyter
+            and self.mode in ("live", "dynamic")
+            and not sys.stdout.isatty()
+        ):
+            print(
+                self._render_text(),
+                end="",
+            )
+
+        self._closed = True
 
     # ── Static display ──
 

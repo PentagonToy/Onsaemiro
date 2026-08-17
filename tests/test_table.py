@@ -122,3 +122,67 @@ def test_invalid_mode():
     """Verify ValueError when passing an unsupported table mode."""
     with pytest.raises(ValueError, match="Unknown mode 'invalid'"):
         osm.TableMaker(mode="invalid")
+
+def test_live_table_suppresses_intermediate_non_tty_output(
+    capsys,
+):
+    """Verify redirected live output emits only the final table."""
+    table = osm.TableMaker(
+        title="Build Status",
+        columns=["Component", "Status"],
+        mode="live",
+    )
+
+    table.add_row(
+        "SmartRedis",
+        "Pending",
+    )
+    table.update_row(
+        0,
+        "SmartRedis",
+        "Building",
+    )
+    table.update_row(
+        0,
+        "SmartRedis",
+        "Done",
+    )
+
+    intermediate = capsys.readouterr()
+
+    assert intermediate.out == ""
+
+    table.close()
+
+    final = capsys.readouterr()
+
+    assert "Build Status" in final.out
+    assert "SmartRedis" in final.out
+    assert "Done" in final.out
+    assert "Pending" not in final.out
+    assert "Building" not in final.out
+    assert "\033[" not in final.out
+
+
+def test_live_table_close_is_idempotent(
+    capsys,
+):
+    """Verify closing a live table more than once emits no duplicate."""
+    table = osm.TableMaker(
+        title="Build Status",
+        columns=["Component", "Status"],
+        mode="live",
+    )
+    table.add_row(
+        "OpenFOAM",
+        "Done",
+    )
+
+    table.close()
+    first = capsys.readouterr()
+
+    table.close()
+    second = capsys.readouterr()
+
+    assert "OpenFOAM" in first.out
+    assert second.out == ""
