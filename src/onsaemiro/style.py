@@ -1,6 +1,10 @@
 """Publication-quality Matplotlib style configuration."""
 
 from contextlib import contextmanager
+from collections.abc import Iterator, Mapping
+from os import PathLike
+from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,21 +26,49 @@ _DEFAULT_SUBPLOT = {
 }
 
 
-def _compute_scale(fig_width, exponent=_SCALE_EXPONENT):
+_JOURNAL_PRESETS = {
+    "nature": {
+        "single": (3.50, 2.65),
+        "double": (7.20, 4.80),
+        "base_fontsize": 10.0,
+        "linewidth": 1.0,
+    },
+    "science": {
+        "single": (3.40, 2.55),
+        "double": (7.00, 4.70),
+        "base_fontsize": 9.5,
+        "linewidth": 1.0,
+    },
+    "ieee": {
+        "single": (3.50, 2.55),
+        "double": (7.16, 4.80),
+        "base_fontsize": 9.0,
+        "linewidth": 0.9,
+    },
+    "aps": {
+        "single": (3.40, 2.60),
+        "double": (7.00, 4.80),
+        "base_fontsize": 10.0,
+        "linewidth": 1.0,
+    },
+}
+
+
+def _compute_scale(fig_width: float, exponent: float = _SCALE_EXPONENT) -> float:
     raw = (fig_width / _REF_WIDTH) ** exponent
     return float(np.clip(raw, 0.55, 2.2))
 
 
 def set_style(
-    base_fontsize=12.5,
-    linewidth=1.2,
-    figure_size=(3.5, 2.5),
-    subplot=None,
-    use_tex=False,
-    auto_scale=True,
-    scale_exponent=_SCALE_EXPONENT,
-    palette="okabe-ito",
-):
+    base_fontsize: float = 12.5,
+    linewidth: float = 1.2,
+    figure_size: tuple[float, float] = (3.5, 2.5),
+    subplot: Mapping[str, float] | None = None,
+    use_tex: bool = False,
+    auto_scale: bool = True,
+    scale_exponent: float = _SCALE_EXPONENT,
+    palette: str = "okabe-ito",
+) -> None:
     """
     One-call global setup.
 
@@ -146,28 +178,120 @@ def set_style(
     )
 
 
-def reset_style():
+def reset_style() -> None:
     """Restore matplotlib defaults."""
     plt.rcdefaults()
 
 
-def fixed_frame(figure_size=None, subplot=None, **ax_kw):
+def journal_preset(name: str, column: str = "single") -> dict[str, Any]:
+    """Return a copy of a journal-oriented style preset.
+
+    Presets are practical starting points rather than publisher guarantees;
+    authors should still check the current journal instructions.
     """
-    Context manager for per-figure size/layout override.
-    Falls back to current rcParams when arguments are None.
+    key = str(name).lower()
+    column_key = str(column).lower()
+
+    if key not in _JOURNAL_PRESETS:
+        raise ValueError(
+            f"Unknown journal {name!r}; expected one of "
+            f"{tuple(_JOURNAL_PRESETS)}."
+        )
+    if column_key not in {"single", "double"}:
+        raise ValueError("column must be 'single' or 'double'.")
+
+    source = _JOURNAL_PRESETS[key]
+    figure_size = cast(tuple[float, float], source[column_key])
+    return {
+        "figure_size": figure_size,
+        "base_fontsize": source["base_fontsize"],
+        "linewidth": source["linewidth"],
+    }
+
+
+def set_journal_style(
+    name: str,
+    column: str = "single",
+    **overrides: Any,
+) -> dict[str, Any]:
+    """Apply a journal preset, with optional :func:`set_style` overrides."""
+    options = journal_preset(name, column=column)
+    options.update(overrides)
+    set_style(**options)
+    return options
+
+
+@contextmanager
+def fixed_frame(
+    figure_size: tuple[float, float] | None = None,
+    subplot: Mapping[str, float] | None = None,
+    *,
+    nrows: int = 1,
+    ncols: int = 1,
+    gridspec_kw: Mapping[str, Any] | None = None,
+    squeeze: bool = True,
+    layout: str | None = None,
+    **ax_kw: Any,
+) -> Iterator[tuple[Any, Any]]:
+    """
+    Context manager for fixed-frame single or multi-axes figures.
+
+    The original ``with fixed_frame() as (fig, ax)`` form remains unchanged.
+    Set ``nrows`` or ``ncols`` for a subplot array, and use ``gridspec_kw`` for
+    relative panel sizes.  ``layout="constrained"`` delegates spacing to
+    Matplotlib instead of applying fixed subplot fractions.
     """
     fs = figure_size or plt.rcParams["figure.figsize"]
     sp = {**_DEFAULT_SUBPLOT, **(subplot or {})}
-    rect = [sp["left"], sp["bottom"],
-            sp["right"] - sp["left"], sp["top"] - sp["bottom"]]
-
     prev = plt.rcParams.get("figure.autolayout", False)
     plt.rcParams["figure.autolayout"] = False
 
-    fig = plt.figure(figsize=fs)
-    ax = fig.add_axes(rect, **ax_kw)
+    fig, axes = plt.subplots(
+        nrows=nrows,
+        ncols=ncols,
+        figsize=fs,
+        gridspec_kw=(None if gridspec_kw is None else dict(gridspec_kw)),
+        squeeze=squeeze,
+        layout=layout,
+        subplot_kw=ax_kw or None,
+    )
+
+    if layout not in {"constrained", "compressed"}:
+        fig.subplots_adjust(**sp)
 
     try:
-        yield fig, ax
+        yield fig, axes
     finally:
         plt.rcParams["figure.autolayout"] = prev
+
+
+def export_figure(
+    fig: Any,
+    path: str | PathLike[str],
+    *,
+    dpi: float = 300,
+    transparent: bool = False,
+    bbox_inches: str | None = "tight",
+    metadata: Mapping[str, Any] | None = None,
+    close: bool = False,
+    **savefig_kw: Any,
+) -> Path:
+    """Export a figure with publication-safe vector font settings."""
+    destination = Path(path).expanduser()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    options = {
+        "dpi": dpi,
+        "transparent": transparent,
+        "bbox_inches": bbox_inches,
+        "metadata": metadata,
+        **savefig_kw,
+    }
+
+    with plt.rc_context({"pdf.fonttype": 42, "ps.fonttype": 42}):
+        fig.savefig(destination, **options)
+
+    if close:
+        plt.close(fig)
+
+    return destination

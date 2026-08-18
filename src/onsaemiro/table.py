@@ -1,8 +1,13 @@
 """Console and Jupyter table rendering."""
 
+import csv
+from collections.abc import Callable, Iterable, Mapping, Sequence
 import html as _html
+from os import PathLike
 import sys
 from io import StringIO
+from pathlib import Path
+from typing import Any
 
 from ._environment import _is_jupyter
 
@@ -13,19 +18,33 @@ _TABLE_MODES = ("static", "live", "dynamic")
 class TableMaker:
     """Table for console / Jupyter with optional live updates."""
 
-    def __init__(self, title="Analysis", columns=None, mode="static"):
+    def __init__(
+        self,
+        title: str = "Analysis",
+        columns: Iterable[str] | None = None,
+        mode: str = "static",
+        *,
+        formatters: (
+            Mapping[str | int, str | Callable[[Any], Any]]
+            | Sequence[str | Callable[[Any], Any] | None]
+            | None
+        ) = None,
+    ) -> None:
         if mode not in _TABLE_MODES:
             raise ValueError(
                 f"Unknown mode {mode!r}; expected one of {_TABLE_MODES}."
             )
         self.title = title
-        self.columns = columns or ["Parameter", "Value", "Unit"]
-        self.data = []
+        self.columns = list(columns or ["Parameter", "Value", "Unit"])
+        if not self.columns:
+            raise ValueError("TableMaker requires at least one column.")
+        self.data: list[list[str]] = []
         self.mode = mode
+        self.formatters = formatters
         self._jupyter = _is_jupyter()
         self._handle = None
-        self._console = None
-        self._live = None
+        self._console: Any = None
+        self._live: Any = None
         self._closed = False
 
     # ── Renderers ──
@@ -133,33 +152,54 @@ class TableMaker:
 
     # ── Row management ──
 
-    def add_row(self, *values):
+    def _normalise_row(self, values: tuple[Any, ...]) -> list[str]:
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            row = list(values[0])
+        else:
+            row = list(values)
+
+        if len(row) != len(self.columns):
+            raise ValueError(
+                f"Expected {len(self.columns)} values, received {len(row)}."
+            )
+
+        formatted = []
+        for index, value in enumerate(row):
+            formatter = None
+            if isinstance(self.formatters, dict):
+                formatter = self.formatters.get(
+                    self.columns[index],
+                    self.formatters.get(index),
+                )
+            elif self.formatters is not None and index < len(self.formatters):
+                formatter = self.formatters[index]
+
+            if formatter is None:
+                formatted.append(str(value))
+            elif callable(formatter):
+                formatted.append(str(formatter(value)))
+            else:
+                formatted.append(format(value, str(formatter)))
+
+        return formatted
+
+    def add_row(self, *values: Any) -> None:
         """Add a row to the table.
         Accepts either positional arguments or a single list/tuple:
             table.add_row("a", "b", "c")
             table.add_row(["a", "b", "c"])
         """
-        if len(values) == 1 and isinstance(values[0], (list, tuple)):
-            row = values[0]
-        else:
-            row = values
-
-        self.data.append([str(v) for v in row])
+        self.data.append(self._normalise_row(values))
         if self.mode in ("live", "dynamic"):
             self._update()
 
-    def update_row(self, index, *values):
+    def update_row(self, index: int, *values: Any) -> None:
         """Replace an existing row and refresh live output."""
         if not isinstance(index, int) or isinstance(index, bool):
             raise TypeError("Row index must be an integer.")
 
-        if len(values) == 1 and isinstance(values[0], (list, tuple)):
-            row = values[0]
-        else:
-            row = values
-
         try:
-            self.data[index] = [str(v) for v in row]
+            self.data[index] = self._normalise_row(values)
         except IndexError as error:
             raise IndexError(
                 f"Row index out of range: {index}"
@@ -167,6 +207,97 @@ class TableMaker:
 
         if self.mode in ("live", "dynamic"):
             self._update()
+
+    def sort(
+        self,
+        column: str | int = 0,
+        *,
+        reverse: bool = False,
+        key: Callable[[str], Any] | None = None,
+    ) -> "TableMaker":
+        """Sort rows in place by a column name or index."""
+        if isinstance(column, str):
+            try:
+                column = self.columns.index(column)
+            except ValueError as error:
+                raise KeyError(f"Unknown table column: {column!r}.") from error
+        if not isinstance(column, int) or isinstance(column, bool):
+            raise TypeError("column must be a name or integer index.")
+        if not -len(self.columns) <= column < len(self.columns):
+            raise IndexError(f"Column index out of range: {column}")
+
+        value_key = key or (lambda value: value)
+        self.data.sort(
+            key=lambda row: value_key(row[column]),
+            reverse=reverse,
+        )
+        if self.mode in ("live", "dynamic"):
+            self._update()
+        return self
+
+    def to_csv(self, path: str | PathLike[str]) -> Path:
+        """Export the table, including its header, to CSV."""
+        destination = Path(path).expanduser()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with destination.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.writer(stream)
+            writer.writerow(self.columns)
+            writer.writerows(self.data)
+        return destination
+
+    def to_latex(
+        self,
+        path: str | PathLike[str] | None = None,
+        *,
+        caption: str | None = None,
+        label: str | None = None,
+    ) -> str:
+        """Return a booktabs LaTeX table and optionally write it to a file."""
+        def escape(value: object) -> str:
+            replacements = {
+                "\\": r"\textbackslash{}",
+                "&": r"\&",
+                "%": r"\%",
+                "$": r"\$",
+                "#": r"\#",
+                "_": r"\_",
+                "{": r"\{",
+                "}": r"\}",
+            }
+            return "".join(
+                replacements.get(character, character)
+                for character in str(value)
+            )
+
+        alignment = "l" + "r" * (len(self.columns) - 1)
+        lines = [r"\begin{table}", r"\centering"]
+        if caption is not None:
+            lines.append(rf"\caption{{{escape(caption)}}}")
+        if label is not None:
+            lines.append(rf"\label{{{escape(label)}}}")
+        lines.extend(
+            [
+                rf"\begin{{tabular}}{{{alignment}}}",
+                r"\toprule",
+                " & ".join(escape(value) for value in self.columns) + r" \\",
+                r"\midrule",
+            ]
+        )
+        lines.extend(
+            " & ".join(escape(value) for value in row) + r" \\"
+            for row in self.data
+        )
+        lines.extend(
+            [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+        )
+        output = "\n".join(lines) + "\n"
+
+        if path is not None:
+            destination = Path(path).expanduser()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(output, encoding="utf-8")
+
+        return output
 
     # ── Update logic ──
 

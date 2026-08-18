@@ -2,8 +2,22 @@
 
 from ._version import __version__, __date__
 from .constants import EPS
-from .palette import Palette, get_palette, build_color_map
-from .style import set_style, reset_style, fixed_frame
+from .palette import (
+    Palette,
+    get_palette,
+    build_color_map,
+    register_palette,
+    save_palette,
+    load_palette,
+)
+from .style import (
+    set_style,
+    reset_style,
+    journal_preset,
+    set_journal_style,
+    fixed_frame,
+    export_figure,
+)
 from .helpers import (
     finalize,
     style_colorbar,
@@ -20,9 +34,15 @@ __all__ = [
     "Palette",
     "get_palette",
     "build_color_map",
+    "register_palette",
+    "save_palette",
+    "load_palette",
     "set_style",
     "reset_style",
+    "journal_preset",
+    "set_journal_style",
     "fixed_frame",
+    "export_figure",
     "finalize",
     "style_colorbar",
     "annotate_panels",

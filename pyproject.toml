@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "onsaemiro"
-version = "1.0.4"
+dynamic = ["version"]
 description = "Publication-quality scientific visualisation and reporting utilities"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,10 +14,10 @@ authors = [
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
-    "numpy",
-    "matplotlib",
-    "rich",
-    "ipython",
+    "numpy>=1.24",
+    "matplotlib>=3.6",
+    "rich>=13",
+    "ipython>=8",
 ]
 keywords = [
     "matplotlib",
@@ -37,12 +37,25 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.10",
+    "pytest>=8",
+]
+
 [project.urls]
 Repository = "https://github.com/PentagonToy/Onsaemiro"
 Issues = "https://github.com/PentagonToy/Onsaemiro/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "onsaemiro._version.__version__"}
+
+[tool.setuptools.package-data]
+onsaemiro = ["py.typed"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -50,3 +63,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/onsaemiro"]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true

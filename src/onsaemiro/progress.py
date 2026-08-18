@@ -1,8 +1,10 @@
 """Console and Jupyter progress reporting."""
 
+from collections.abc import Iterable, Iterator, Sized
 import html as _html
 import sys
 import time
+from typing import Generic, TypeVar
 
 import numpy as np
 
@@ -12,7 +14,10 @@ from ._environment import _is_jupyter
 sleep = time.sleep
 
 
-class ProgressBar:
+_T = TypeVar("_T")
+
+
+class ProgressBar(Generic[_T]):
     """
     Static-HTML progress bar in the TableMaker style.
 
@@ -44,7 +49,7 @@ class ProgressBar:
     >>> for x in osm.track(range(1000), desc="Training"):
     ...     do_work(x)
 
-    >>> with dg.ProgressBar(total=N, desc="Sweep") as pb:
+    >>> with osm.ProgressBar(total=N, desc="Sweep") as pb:
     ...     for i in range(N):
     ...         compute()
     ...         pb.update()
@@ -54,30 +59,51 @@ class ProgressBar:
     _FONT = "'Times New Roman', Times, serif"
     _BAR_PX = 260
 
-    def __init__(self, iterable=None, total=None, desc="",
-                 width=40, mininterval=0.1):
+    def __init__(
+        self,
+        iterable: Iterable[_T] | None = None,
+        total: int | None = None,
+        desc: str = "",
+        width: int = 40,
+        mininterval: float = 0.1,
+        smoothing: float = 0.3,
+    ) -> None:
         self.iterable = iterable
-        if total is None and iterable is not None:
-            try:
-                total = len(iterable)
-            except TypeError:
-                total = None
+        if total is None and isinstance(iterable, Sized):
+            total = len(iterable)
+        if total is not None and (
+            not isinstance(total, int)
+            or isinstance(total, bool)
+            or total < 0
+        ):
+            raise ValueError("total must be a non-negative integer or None.")
+        if not isinstance(width, int) or isinstance(width, bool) or width < 1:
+            raise ValueError("width must be a positive integer.")
+        if mininterval < 0:
+            raise ValueError("mininterval must be non-negative.")
+        if not 0 <= smoothing <= 1:
+            raise ValueError("smoothing must be between 0 and 1.")
+
         self.total = total
         self.desc = desc
         self.width = width
         self.mininterval = mininterval
+        self.smoothing = smoothing
 
-        self.n = 0
-        self._start = None
+        self.n: int | float = 0
+        self._start: float | None = None
         self._last = 0.0
         self._handle = None
         self._jupyter = _is_jupyter()
         self._closed = False
+        self._rate = 0.0
+        self._rate_n: int | float = 0
+        self._rate_time: float | None = None
 
     # ── Formatting helpers ──
 
     @staticmethod
-    def _fmt_time(s):
+    def _fmt_time(s: float | None) -> str:
         if s is None or not np.isfinite(s):
             return "?"
         s = int(s)
@@ -87,9 +113,17 @@ class ProgressBar:
 
     def _stats(self):
         elapsed = time.monotonic() - self._start if self._start else 0.0
-        rate = self.n / elapsed if elapsed > 0 else 0.0
-        eta = (self.total - self.n) / rate if (self.total and rate > 0) else None
-        frac = self.n / self.total if self.total else 0.0
+        rate = self._rate or (self.n / elapsed if elapsed > 0 else 0.0)
+        eta = (
+            max(0, self.total - self.n) / rate
+            if self.total is not None and rate > 0
+            else None
+        )
+        frac = (
+            self.n / self.total
+            if self.total not in {None, 0}
+            else (1.0 if self.total == 0 else 0.0)
+        )
         return elapsed, rate, eta, frac
 
     # ── Renderers ──
@@ -97,7 +131,7 @@ class ProgressBar:
     def _render_html(self):
         elapsed, rate, eta, frac = self._stats()
 
-        if self.total:
+        if self.total is not None:
             pct = max(0.0, min(100.0, frac * 100))
             bar = (
                 f'<span style="display:inline-block; width:{self._BAR_PX}px; '
@@ -141,7 +175,7 @@ class ProgressBar:
     def _render_text(self):
         elapsed, rate, eta, frac = self._stats()
         prefix = f"{self.desc}: " if self.desc else ""
-        if self.total:
+        if self.total is not None:
             frac_clamped = max(0.0, min(1.0, frac))
             filled = int(self.width * frac_clamped)
             bar = "█" * filled + "·" * (self.width - filled)
@@ -178,20 +212,36 @@ class ProgressBar:
 
     # ── Public API ──
 
-    def update(self, n=1):
+    def update(self, n: int | float = 1) -> None:
         """Advance the counter by ``n`` and refresh if throttled interval has elapsed."""
+        if self._closed:
+            raise RuntimeError("Cannot update a closed ProgressBar.")
+        if not isinstance(n, (int, float)) or isinstance(n, bool) or n < 0:
+            raise ValueError("n must be a non-negative number.")
         if self._start is None:
             self._start = time.monotonic()
+        now = time.monotonic()
         self.n += n
+        if self._rate_time is not None and now > self._rate_time:
+            instant_rate = (self.n - self._rate_n) / (now - self._rate_time)
+            if self._rate == 0.0:
+                self._rate = instant_rate
+            else:
+                self._rate = (
+                    self.smoothing * instant_rate
+                    + (1 - self.smoothing) * self._rate
+                )
+        self._rate_n = self.n
+        self._rate_time = now
         is_done = self.total is not None and self.n >= self.total
         self._refresh(force=is_done)
 
-    def set_description(self, desc):
+    def set_description(self, desc: str) -> None:
         """Change the prefix label and force a refresh."""
         self.desc = desc
         self._refresh(force=True)
 
-    def close(self):
+    def close(self) -> None:
         """Force a final render so GitHub gets the completed bar in the cell output."""
         if self._closed:
             return
@@ -203,7 +253,7 @@ class ProgressBar:
 
     # ── Iterator + context manager ──
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[_T]:
         if self.iterable is None:
             raise TypeError("ProgressBar has no iterable; use update() instead.")
         if self._start is None:
@@ -227,6 +277,6 @@ class ProgressBar:
         return False
 
 
-def track(iterable=None, **kwargs):
+def track(iterable: Iterable[_T] | None = None, **kwargs) -> ProgressBar[_T]:
     """tqdm-style convenience wrapper around :class:`ProgressBar`."""
     return ProgressBar(iterable=iterable, **kwargs)

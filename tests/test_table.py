@@ -186,3 +186,33 @@ def test_live_table_close_is_idempotent(
 
     assert "OpenFOAM" in first.out
     assert second.out == ""
+
+
+def test_table_rejects_wrong_row_width():
+    table = osm.TableMaker(columns=["Name", "Value"])
+    with pytest.raises(ValueError, match="Expected 2 values"):
+        table.add_row("only-one")
+
+
+def test_table_format_sort_and_exports(tmp_path):
+    table = osm.TableMaker(
+        title="Results",
+        columns=["Case", "Error"],
+        formatters={"Error": ".2f"},
+    )
+    table.add_row("B", 2.345)
+    table.add_row("A", 1.234)
+    table.sort("Case")
+
+    assert table.data == [["A", "1.23"], ["B", "2.35"]]
+
+    csv_path = table.to_csv(tmp_path / "results.csv")
+    assert csv_path.read_text().splitlines() == [
+        "Case,Error",
+        "A,1.23",
+        "B,2.35",
+    ]
+
+    latex = table.to_latex(caption="A & B", label="tab:results")
+    assert r"\caption{A \& B}" in latex
+    assert r"\toprule" in latex

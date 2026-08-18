@@ -1,8 +1,14 @@
 """Colour palettes and colour mapping utilities."""
 
+import json
+from collections.abc import Iterable, Mapping
+from os import PathLike
+from pathlib import Path
+from typing import Any
 import warnings
 
 import numpy as np
+from matplotlib.colors import is_color_like
 
 
 _PALETTES = {
@@ -66,16 +72,16 @@ _PALETTES = {
 class Palette:
     """Colour palette with both name-based and index-based access."""
 
-    def __init__(self, names, colors):
+    def __init__(self, names: Iterable[str], colors: Iterable[str]) -> None:
         self._names = list(names)
         self._colors = list(colors)
         self._map = dict(zip(self._names, self._colors))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         pairs = ", ".join(f"{n}={c}" for n, c in zip(self._names, self._colors))
         return f"Palette({pairs})"
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int | slice | str):
         if isinstance(key, (int, np.integer)):
             return self._colors[key % len(self._colors)]
         if isinstance(key, slice):
@@ -84,17 +90,17 @@ class Palette:
             return self._map[key.lower()]
         raise KeyError(key)
 
-    def __contains__(self, key):
+    def __contains__(self, key: object) -> bool:
         if isinstance(key, str):
             return key.lower() in self._map
         if isinstance(key, (int, np.integer)):
-            return -len(self._colors) <= key < len(self._colors)
+            return bool(-len(self._colors) <= key < len(self._colors))
         return False
 
     def __iter__(self):
         return iter(self._colors)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._colors)
 
     def keys(self):
@@ -107,8 +113,9 @@ class Palette:
         return self._map.items()
 
 
-def _resolve_palette(name):
+def _resolve_palette(name: object) -> str:
     p = str(name).lower()
+    if p in _PALETTES:                  return p
     if "vibrant" in p:                return "paul-tol-vibrant"
     if "bright" in p:                 return "paul-tol-bright"
     if "muted" in p:                  return "paul-tol-muted"
@@ -125,15 +132,112 @@ def _resolve_palette(name):
     return "okabe-ito"
 
 
-def get_palette(palette="okabe-ito", n=None):
+def get_palette(palette: str | Palette = "okabe-ito", n: int | None = None) -> Palette:
     """Return a Palette object. Supports fuzzy name matching."""
+    if isinstance(palette, Palette):
+        if n is None:
+            return palette
+        source = palette
+        if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+            raise ValueError("n must be a positive integer or None.")
+        return Palette(list(source.keys())[:n], list(source.values())[:n])
+
+    if n is not None and (
+        not isinstance(n, int)
+        or isinstance(n, bool)
+        or n < 1
+    ):
+        raise ValueError("n must be a positive integer or None.")
+
     key = _resolve_palette(palette)
     entry = _PALETTES[key]
     limit = len(entry["colors"]) if n is None else min(n, len(entry["colors"]))
     return Palette(entry["names"][:limit], entry["colors"][:limit])
 
 
-def build_color_map(labels, palette="okabe-ito"):
+def build_color_map(
+    labels: Iterable[Any],
+    palette: str | Palette = "okabe-ito",
+) -> dict[Any, str]:
     """Map unique labels to palette colours."""
     pal = get_palette(palette=palette)
-    return {lab: pal[i] for i, lab in enumerate(labels)}
+    unique_labels = dict.fromkeys(labels)
+    return {
+        label: pal[index]
+        for index, label in enumerate(unique_labels)
+    }
+
+
+def register_palette(
+    name: str,
+    colors: Mapping[str, str] | Iterable[str],
+    names: Iterable[str] | None = None,
+    *,
+    overwrite: bool = False,
+) -> Palette:
+    """Register a custom palette for use by :func:`get_palette`."""
+    key = str(name).strip().lower()
+    if not key:
+        raise ValueError("Palette name must not be empty.")
+    if key in _PALETTES and not overwrite:
+        raise ValueError(f"Palette {key!r} is already registered.")
+
+    if isinstance(colors, Mapping):
+        if names is not None:
+            raise ValueError("names must be omitted when colors is a mapping.")
+        palette_names = [str(value) for value in colors]
+        palette_colors = list(colors.values())
+    else:
+        palette_colors = list(colors)
+        palette_names = (
+            [f"color-{index + 1}" for index in range(len(palette_colors))]
+            if names is None
+            else [str(value) for value in names]
+        )
+
+    if not palette_colors:
+        raise ValueError("A palette must contain at least one colour.")
+    if len(palette_names) != len(palette_colors):
+        raise ValueError("Palette names and colors must have the same length.")
+    if len(set(palette_names)) != len(palette_names):
+        raise ValueError("Palette colour names must be unique.")
+
+    invalid = [value for value in palette_colors if not is_color_like(value)]
+    if invalid:
+        raise ValueError(f"Invalid Matplotlib colour values: {invalid!r}.")
+
+    _PALETTES[key] = {
+        "names": palette_names,
+        "colors": [str(value) for value in palette_colors],
+    }
+    return get_palette(key)
+
+
+def save_palette(name: str, path: str | PathLike[str]) -> Path:
+    """Save a registered palette as portable JSON."""
+    key = _resolve_palette(name)
+    destination = Path(path).expanduser()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
+        json.dumps({"name": key, **_PALETTES[key]}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return destination
+
+
+def load_palette(
+    path: str | PathLike[str],
+    *,
+    name: str | None = None,
+    overwrite: bool = False,
+) -> Palette:
+    """Load and register a palette saved by :func:`save_palette`."""
+    source = Path(path).expanduser()
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    palette_name = name or payload.get("name") or source.stem
+    return register_palette(
+        palette_name,
+        payload["colors"],
+        names=payload.get("names"),
+        overwrite=overwrite,
+    )
