@@ -4,10 +4,10 @@ import json
 from collections.abc import Iterable, Mapping
 from os import PathLike
 from pathlib import Path
+from numbers import Integral
 from typing import Any
 import warnings
 
-import numpy as np
 from matplotlib.colors import is_color_like
 
 
@@ -82,8 +82,9 @@ class Palette:
         return f"Palette({pairs})"
 
     def __getitem__(self, key: int | slice | str):
-        if isinstance(key, (int, np.integer)):
-            return self._colors[key % len(self._colors)]
+        if isinstance(key, Integral) and not isinstance(key, bool):
+            index = int(key)
+            return self._colors[index % len(self._colors)]
         if isinstance(key, slice):
             return self._colors[key]
         if isinstance(key, str):
@@ -93,8 +94,9 @@ class Palette:
     def __contains__(self, key: object) -> bool:
         if isinstance(key, str):
             return key.lower() in self._map
-        if isinstance(key, (int, np.integer)):
-            return bool(-len(self._colors) <= key < len(self._colors))
+        if isinstance(key, Integral) and not isinstance(key, bool):
+            index = int(key)
+            return -len(self._colors) <= index < len(self._colors)
         return False
 
     def __iter__(self):

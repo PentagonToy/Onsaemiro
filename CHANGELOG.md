@@ -2,6 +2,11 @@
 
 This changelog records user-visible Onsaemiro changes in reverse chronological order.
 
+## [1.1.1] - 2026-09-14
+
+- Plain-text tables now fit the detected terminal width, wrap long values, retain numeric alignment, and draw complete Unicode borders.
+- Onsaemiro no longer imports or declares NumPy directly; lightweight numerical helpers now use the Python standard library.
+
 ## [1.1.0] - 2026-09-14
 
 ### Presentation API

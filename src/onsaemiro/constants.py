@@ -1,6 +1,6 @@
 """Public numerical constants."""
 
-import numpy as np
+import sys
 
 
-EPS = np.finfo(np.float64).eps
+EPS = sys.float_info.epsilon

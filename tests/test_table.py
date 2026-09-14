@@ -118,6 +118,15 @@ def test_table_maker_render_output(capsys):
     assert "0.19" in captured.out
 
 
+def test_text_table_wraps_to_requested_width():
+    table = osm.Table("Doctor", ["Status", "Check", "Detail"])
+    table.add_row("PASS", "Runtime", "/a/very/long/runtime/path/that/must/wrap/in/a/narrow/terminal")
+    output = table.to_text(width=52)
+    assert max(map(len, output.splitlines())) <= 52
+    assert "┌" in output and "┐" in output and "└" in output and "┘" in output
+    assert "PASS" in output and "Runtime" in output
+
+
 def test_invalid_mode():
     """Verify ValueError when passing an unsupported table mode."""
     with pytest.raises(ValueError, match="Unknown mode 'invalid'"):

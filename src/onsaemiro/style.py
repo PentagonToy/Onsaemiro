@@ -5,7 +5,6 @@ from os import PathLike
 from pathlib import Path
 from typing import Any, cast
 
-import numpy as np
 import matplotlib.pyplot as plt
 
 from .palette import get_palette
@@ -55,7 +54,7 @@ _JOURNAL_PRESETS = {
 
 def _compute_scale(fig_width: float, exponent: float = _SCALE_EXPONENT) -> float:
     raw = (fig_width / _REF_WIDTH) ** exponent
-    return float(np.clip(raw, 0.55, 2.2))
+    return max(0.55, min(2.2, raw))
 
 
 def set_style(

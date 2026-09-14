@@ -5,7 +5,9 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 import html
 from os import PathLike
 from pathlib import Path
+import shutil
 import sys
+import textwrap
 from typing import Any
 
 from ._environment import _is_jupyter
@@ -85,13 +87,53 @@ class Table:
             self._update()
         return self
 
-    def to_text(self) -> str:
-        """Return a Unicode table suitable for terminals and logs."""
+    def to_text(self, width: int | None = None) -> str:
+        """Return a terminal-width-aware Unicode table."""
         rows = [self.columns, *self.data]
         widths = [max(len(str(row[index])) for row in rows) for index in range(len(self.columns))]
-        border = "─┼─".join("─" * width for width in widths)
-        lines = [str(self.title), "   ".join(value.ljust(widths[index]) for index, value in enumerate(self.columns)), border]
-        lines.extend("   ".join(value.ljust(widths[index]) for index, value in enumerate(row)) for row in self.data)
+        available = width or shutil.get_terminal_size((120, 20)).columns
+        available = max(20, available)
+        minimums = [min(value, max(6, len(str(self.columns[index])))) for index, value in enumerate(widths)]
+        while sum(widths) + 3 * len(widths) + 1 > available:
+            candidates = [index for index, value in enumerate(widths) if value > minimums[index]]
+            if not candidates:
+                break
+            widest = max(candidates, key=lambda index: widths[index] - minimums[index])
+            widths[widest] -= 1
+
+        numeric = []
+        for index in range(len(self.columns)):
+            try:
+                for row in self.data:
+                    float(row[index])
+            except ValueError:
+                numeric.append(False)
+            else:
+                numeric.append(bool(self.data))
+
+        def border(left: str, middle: str, right: str) -> str:
+            return left + middle.join("─" * (value + 2) for value in widths) + right
+
+        def render_row(row: Sequence[str], *, header: bool = False) -> list[str]:
+            wrapped = [
+                textwrap.wrap(str(value), width=widths[index], break_long_words=True, break_on_hyphens=False) or [""]
+                for index, value in enumerate(row)
+            ]
+            rendered = []
+            for line in range(max(map(len, wrapped))):
+                cells = []
+                for index, values in enumerate(wrapped):
+                    value = values[line] if line < len(values) else ""
+                    cells.append(value.rjust(widths[index]) if numeric[index] and not header else value.ljust(widths[index]))
+                rendered.append("│ " + " │ ".join(cells) + " │")
+            return rendered
+
+        lines = [str(self.title), border("┌", "┬", "┐"), *render_row(self.columns, header=True), border("├", "┼", "┤")]
+        for index, row in enumerate(self.data):
+            lines.extend(render_row(row))
+            if index + 1 < len(self.data):
+                lines.append(border("├", "┼", "┤"))
+        lines.append(border("└", "┴", "┘"))
         return "\n".join(lines) + "\n"
 
     def to_html(self) -> str:

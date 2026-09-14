@@ -2,11 +2,10 @@
 
 from collections.abc import Iterable, Iterator, Sized
 import html as _html
+import math
 import sys
 import time
 from typing import Generic, Literal, TypeVar
-
-import numpy as np
 
 from ._environment import _is_jupyter
 
@@ -106,7 +105,7 @@ class Progress(Generic[_T]):
 
     @staticmethod
     def _fmt_time(s: float | None) -> str:
-        if s is None or not np.isfinite(s):
+        if s is None or not math.isfinite(s):
             return "?"
         s = int(s)
         h, rem = divmod(s, 3600)

@@ -1,19 +1,19 @@
 """Matplotlib plotting helpers."""
 
-import numpy as np
+import math
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 
 class _SkipZeroFormatter(mticker.ScalarFormatter):
     def __call__(self, x, pos=None):
-        return "" if np.isclose(x, 0.0) else super().__call__(x, pos)
+        return "" if math.isclose(x, 0.0, rel_tol=1e-5, abs_tol=1e-8) else super().__call__(x, pos)
 
 
 def _to_axes_list(ax):
     if ax is None:
         return [plt.gca()]
-    if isinstance(ax, np.ndarray):
+    if hasattr(ax, "ravel") and callable(ax.ravel):
         return ax.ravel().tolist()
     if hasattr(ax, "__iter__") and not hasattr(ax, "plot"):
         return list(ax)
