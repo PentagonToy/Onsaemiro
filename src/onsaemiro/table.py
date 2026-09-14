@@ -3,12 +3,17 @@
 import csv
 from collections.abc import Callable, Iterable, Mapping, Sequence
 import html
+from io import StringIO
 from os import PathLike
 from pathlib import Path
 import shutil
 import sys
-import textwrap
 from typing import Any
+
+from rich import box
+from rich.console import Console
+from rich.table import Table as RichTable
+from rich.text import Text
 
 from ._environment import _is_jupyter
 
@@ -88,60 +93,73 @@ class Table:
         return self
 
     def to_text(self, width: int | None = None) -> str:
-        """Return a terminal-width-aware Unicode table."""
-        rows = [self.columns, *self.data]
-        widths = [max(len(str(row[index])) for row in rows) for index in range(len(self.columns))]
+        """Return a terminal-width-aware Rich Unicode table."""
         available = width or shutil.get_terminal_size((120, 20)).columns
         available = max(20, available)
-        minimums = [min(value, max(6, len(str(self.columns[index])))) for index, value in enumerate(widths)]
-        while sum(widths) + 3 * len(widths) + 1 > available:
-            candidates = [index for index, value in enumerate(widths) if value > minimums[index]]
-            if not candidates:
-                break
-            widest = max(candidates, key=lambda index: widths[index] - minimums[index])
-            widths[widest] -= 1
-
-        numeric = []
-        for index in range(len(self.columns)):
-            try:
-                for row in self.data:
-                    float(row[index])
-            except ValueError:
-                numeric.append(False)
-            else:
-                numeric.append(bool(self.data))
-
-        def border(left: str, middle: str, right: str) -> str:
-            return left + middle.join("─" * (value + 2) for value in widths) + right
-
-        def render_row(row: Sequence[str], *, header: bool = False) -> list[str]:
-            wrapped = [
-                textwrap.wrap(str(value), width=widths[index], break_long_words=True, break_on_hyphens=False) or [""]
-                for index, value in enumerate(row)
-            ]
-            rendered = []
-            for line in range(max(map(len, wrapped))):
-                cells = []
-                for index, values in enumerate(wrapped):
-                    value = values[line] if line < len(values) else ""
-                    cells.append(value.rjust(widths[index]) if numeric[index] and not header else value.ljust(widths[index]))
-                rendered.append("│ " + " │ ".join(cells) + " │")
-            return rendered
-
-        lines = [str(self.title), border("┌", "┬", "┐"), *render_row(self.columns, header=True), border("├", "┼", "┤")]
-        for index, row in enumerate(self.data):
-            lines.extend(render_row(row))
-            if index + 1 < len(self.data):
-                lines.append(border("├", "┼", "┤"))
-        lines.append(border("└", "┴", "┘"))
-        return "\n".join(lines) + "\n"
+        rendered = StringIO()
+        table = RichTable(
+            title=Text(str(self.title)),
+            title_justify="left",
+            box=box.SQUARE,
+            show_lines=True,
+            header_style="bold",
+            padding=(0, 1),
+        )
+        for index, column in enumerate(self.columns):
+            numeric = bool(self.data)
+            if numeric:
+                try:
+                    for row in self.data:
+                        float(row[index])
+                except ValueError:
+                    numeric = False
+            table.add_column(
+                str(column),
+                justify="right" if numeric else "left",
+                overflow="fold",
+            )
+        for row in self.data:
+            table.add_row(*(Text(str(value)) for value in row))
+        console = Console(
+            file=rendered,
+            width=available,
+            color_system=None,
+            force_terminal=False,
+            legacy_windows=False,
+        )
+        console.print(table)
+        return rendered.getvalue()
 
     def to_html(self) -> str:
-        """Return a portable HTML table."""
+        """Return the publication-style booktabs HTML table."""
         esc = html.escape
-        headings = "".join(f'<th style="padding:6px 10px;text-align:{"left" if i == 0 else "right"};border-bottom:1px solid currentColor">{esc(str(value))}</th>' for i, value in enumerate(self.columns))
-        rows = "".join("<tr>" + "".join(f'<td style="padding:5px 10px;text-align:{"left" if i == 0 else "right"}">{esc(str(value))}</td>' for i, value in enumerate(row)) + "</tr>" for row in self.data)
-        return f'<div style="display:inline-block;color:currentColor"><strong>{esc(str(self.title))}</strong><table style="border-collapse:collapse;margin-top:6px"><thead><tr>{headings}</tr></thead><tbody>{rows}</tbody></table></div>'
+        font = "'Times New Roman', Times, serif"
+        headings = "".join(
+            f'<th style="padding:10px 14px;text-align:{"left" if index == 0 else "right"};'
+            'font-weight:bold;color:currentColor;border-top:2.5px solid currentColor;'
+            'border-bottom:1.2px solid currentColor;font-size:14px;background:none">'
+            f"{esc(str(value))}</th>"
+            for index, value in enumerate(self.columns)
+        )
+        rows = "".join(
+            "<tr>"
+            + "".join(
+                f'<td style="padding:8px 14px;text-align:{"left" if index == 0 else "right"};'
+                f'font-size:13px;color:currentColor;border-bottom:{"2.5px solid currentColor" if row_index + 1 == len(self.data) else "none"};'
+                f'background:none">{esc(str(value))}</td>'
+                for index, value in enumerate(row)
+            )
+            + "</tr>"
+            for row_index, row in enumerate(self.data)
+        )
+        return (
+            '<div style="margin:15px 0;display:inline-block;background:none">'
+            f'<div style="font-family:{font};font-weight:bold;color:currentColor;'
+            f'font-size:14px;margin-bottom:10px;text-align:left">{esc(str(self.title))}</div>'
+            f'<table style="border-collapse:collapse;font-family:{font};border:none;'
+            f'line-height:1.5;color:currentColor;background:none"><thead><tr>{headings}</tr>'
+            f"</thead><tbody>{rows}</tbody></table></div>"
+        )
 
     def _repr_mimebundle_(self, include=None, exclude=None) -> dict[str, str]:
         return {"text/plain": self.to_text(), "text/html": self.to_html()}

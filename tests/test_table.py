@@ -127,6 +127,19 @@ def test_text_table_wraps_to_requested_width():
     assert "PASS" in output and "Runtime" in output
 
 
+def test_html_table_uses_signature_booktabs_presentation():
+    table = osm.Table("OpenFOAM Field Statistics", ["Field", "Min", "Max"])
+    table.add_row("U", "8.13e-06", "8.74e-01")
+
+    output = table.to_html()
+
+    assert "Times New Roman" in output
+    assert "border-top:2.5px solid currentColor" in output
+    assert "border-bottom:1.2px solid currentColor" in output
+    assert "border-bottom:2.5px solid currentColor" in output
+    assert "border:none" in output
+
+
 def test_invalid_mode():
     """Verify ValueError when passing an unsupported table mode."""
     with pytest.raises(ValueError, match="Unknown mode 'invalid'"):

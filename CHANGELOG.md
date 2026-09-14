@@ -2,6 +2,10 @@
 
 This changelog records user-visible Onsaemiro changes in reverse chronological order.
 
+## [1.1.2] - 2026-09-14
+
+- Plain-text tables now use Rich for polished terminal layout, wrapping, and alignment, while Jupyter tables restore Onsaemiro's signature publication-style booktabs presentation.
+
 ## [1.1.1] - 2026-09-14
 
 - Plain-text tables now fit the detected terminal width, wrap long values, retain numeric alignment, and draw complete Unicode borders.
@@ -18,7 +22,7 @@ This changelog records user-visible Onsaemiro changes in reverse chronological o
 
 ### Portable output
 
-- `Table` provides plain-text and HTML representations, static or live display, sorting, formatting, CSV export, and booktabs LaTeX export without Rich.
+- `Table` provides plain-text and HTML representations, static or live display, sorting, formatting, CSV export, and booktabs LaTeX export.
 - `Progress` and `track()` provide portable plain-text and HTML progress reporting, optional metrics, throttled updates, explicit `finish()`, and structured context-manager cleanup.
 - `echo()` writes semantic or explicitly coloured messages while respecting redirected output, `NO_COLOR`, and `TERM=dumb`; `rule()` writes compact separators.
 
