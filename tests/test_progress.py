@@ -10,8 +10,8 @@ def test_track_accepts_generators_with_explicit_total(capsys):
 
 
 def test_zero_total_is_complete(capsys):
-    with osm.ProgressBar(total=0):
-        pass
+    progress = osm.Progress(total=0)
+    progress.finish()
     assert "100.0%" in capsys.readouterr().out
 
 
@@ -26,13 +26,27 @@ def test_zero_total_is_complete(capsys):
 )
 def test_progress_configuration_validation(kwargs, message):
     with pytest.raises(ValueError, match=message):
-        osm.ProgressBar(**kwargs)
+        osm.Progress(**kwargs)
 
 
-def test_closed_progress_cannot_be_updated(capsys):
-    progress = osm.ProgressBar(total=1)
-    progress.close()
+def test_finished_progress_cannot_be_updated(capsys):
+    progress = osm.Progress(total=1)
+    progress.finish()
     capsys.readouterr()
-    with pytest.raises(RuntimeError, match="closed"):
+    with pytest.raises(RuntimeError, match="finished"):
         progress.update()
 
+
+def test_progress_metrics_and_mimebundle():
+    progress = osm.Progress(total=2)
+    progress.set(loss="0.12")
+    bundle = progress._repr_mimebundle_()
+    assert "loss=0.12" in bundle["text/plain"]
+    assert "loss" in bundle["text/html"]
+
+
+def test_progress_context_finishes(capsys):
+    with osm.Progress(total=1) as progress:
+        progress.update()
+    assert progress._finished
+    assert "1/1" in capsys.readouterr().out

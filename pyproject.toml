@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "onsaemiro"
 dynamic = ["version"]
-description = "Publication-quality scientific visualisation and reporting utilities"
+description = "Scientific presentation utilities for figures, notebooks, and terminals"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -16,7 +16,6 @@ license-files = ["LICENSE"]
 dependencies = [
     "numpy>=1.24",
     "matplotlib>=3.6",
-    "rich>=13",
     "ipython>=8",
 ]
 keywords = [
@@ -42,10 +41,14 @@ dev = [
     "mypy>=1.10",
     "pytest>=8",
 ]
+docs = [
+    "mkdocs-material>=9.5",
+]
 
 [project.urls]
 Repository = "https://github.com/PentagonToy/Onsaemiro"
 Issues = "https://github.com/PentagonToy/Onsaemiro/issues"
+Changelog = "https://github.com/PentagonToy/Onsaemiro/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -1,6 +1,6 @@
 """Onsaemiro version metadata."""
 
-__version__ = "1.0.5"
+__version__ = "1.1.0"
 
 
-__date__ = "18 Aug 2026"
+__date__ = "14 Sep 2026"

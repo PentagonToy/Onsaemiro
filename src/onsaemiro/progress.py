@@ -4,7 +4,7 @@ from collections.abc import Iterable, Iterator, Sized
 import html as _html
 import sys
 import time
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
 import numpy as np
 
@@ -17,9 +17,9 @@ sleep = time.sleep
 _T = TypeVar("_T")
 
 
-class ProgressBar(Generic[_T]):
+class Progress(Generic[_T]):
     """
-    Static-HTML progress bar in the TableMaker style.
+    Progress bar with portable plain-text and HTML representations.
 
     Unlike ``tqdm.auto`` (which uses ipywidgets), this renders as plain
     HTML in Jupyter via ``display(..., display_id=True)`` + ``.update()``.
@@ -31,7 +31,7 @@ class ProgressBar(Generic[_T]):
     ----------
     iterable : iterable, optional
         Wrap an iterable for tqdm-style usage:
-        ``for x in ProgressBar(range(N), desc="..."):``.
+        ``for x in Progress(range(N), desc="..."):``.
     total : int, optional
         Total number of iterations.  Inferred from ``len(iterable)`` if
         omitted.  When unknown, an indeterminate bar is shown.
@@ -49,13 +49,14 @@ class ProgressBar(Generic[_T]):
     >>> for x in osm.track(range(1000), desc="Training"):
     ...     do_work(x)
 
-    >>> with osm.ProgressBar(total=N, desc="Sweep") as pb:
-    ...     for i in range(N):
-    ...         compute()
-    ...         pb.update()
+    >>> pb = osm.Progress(total=N, desc="Sweep")
+    >>> for i in range(N):
+    ...     compute()
+    ...     pb.update()
+    >>> pb.finish()
     """
 
-    # ── Design constants (match TableMaker vibe) ──
+    # ── Design constants ──
     _FONT = "'Times New Roman', Times, serif"
     _BAR_PX = 260
 
@@ -95,7 +96,8 @@ class ProgressBar(Generic[_T]):
         self._last = 0.0
         self._handle = None
         self._jupyter = _is_jupyter()
-        self._closed = False
+        self._finished = False
+        self._metrics: dict[str, object] = {}
         self._rate = 0.0
         self._rate_n: int | float = 0
         self._rate_time: float | None = None
@@ -161,6 +163,10 @@ class ProgressBar(Generic[_T]):
             if self.desc else ''
         )
 
+        metrics = "".join(
+            f' <span><strong>{_html.escape(str(key))}</strong>={_html.escape(str(value))}</span>'
+            for key, value in self._metrics.items()
+        )
         return (
             f'<div style="font-family:{self._FONT}; color:currentColor; '
             f'font-size:13px; margin:6px 0; line-height:1.6; background:none">'
@@ -168,7 +174,7 @@ class ProgressBar(Generic[_T]):
             f'<span style="display:inline-block; min-width:48px; '
             f'text-align:right">{label}</span>'
             f'{bar}'
-            f'<span style="font-size:12px">{stats}</span>'
+            f'<span style="font-size:12px">{stats}{metrics}</span>'
             f'</div>'
         )
 
@@ -180,16 +186,31 @@ class ProgressBar(Generic[_T]):
             filled = int(self.width * frac_clamped)
             bar = "█" * filled + "·" * (self.width - filled)
             pct = frac_clamped * 100
-            return (
+            output = (
                 f"{prefix}{pct:5.1f}% |{bar}| "
                 f"{self.n}/{self.total} "
                 f"[{self._fmt_time(elapsed)}<{self._fmt_time(eta)}, "
                 f"{rate:.2f} it/s]"
             )
-        return (
-            f"{prefix}{self.n} "
-            f"[{self._fmt_time(elapsed)}, {rate:.2f} it/s]"
-        )
+        else:
+            output = (
+                f"{prefix}{self.n} "
+                f"[{self._fmt_time(elapsed)}, {rate:.2f} it/s]"
+            )
+        if self._metrics:
+            output += " " + " ".join(f"{key}={value}" for key, value in self._metrics.items())
+        return output
+
+    def to_text(self) -> str:
+        """Return the current progress state as plain text."""
+        return self._render_text()
+
+    def to_html(self) -> str:
+        """Return the current progress state as portable HTML."""
+        return self._render_html()
+
+    def _repr_mimebundle_(self, include=None, exclude=None) -> dict[str, str]:
+        return {"text/plain": self.to_text(), "text/html": self.to_html()}
 
     # ── Refresh ──
 
@@ -206,7 +227,7 @@ class ProgressBar(Generic[_T]):
                 self._handle = display(html, display_id=True)
             else:
                 self._handle.update(html)
-        else:
+        elif sys.stdout.isatty():
             sys.stdout.write("\r\033[K" + self._render_text())
             sys.stdout.flush()
 
@@ -214,8 +235,8 @@ class ProgressBar(Generic[_T]):
 
     def update(self, n: int | float = 1) -> None:
         """Advance the counter by ``n`` and refresh if throttled interval has elapsed."""
-        if self._closed:
-            raise RuntimeError("Cannot update a closed ProgressBar.")
+        if self._finished:
+            raise RuntimeError("Cannot update a finished Progress.")
         if not isinstance(n, (int, float)) or isinstance(n, bool) or n < 0:
             raise ValueError("n must be a non-negative number.")
         if self._start is None:
@@ -241,21 +262,29 @@ class ProgressBar(Generic[_T]):
         self.desc = desc
         self._refresh(force=True)
 
-    def close(self) -> None:
-        """Force a final render so GitHub gets the completed bar in the cell output."""
-        if self._closed:
-            return
+    def set(self, **metrics: object) -> None:
+        """Set displayed metrics such as loss or error."""
+        self._metrics.update(metrics)
         self._refresh(force=True)
+
+    def finish(self) -> None:
+        """Preserve the final progress state in the current environment."""
+        if self._finished:
+            return
+        if self._jupyter or sys.stdout.isatty():
+            self._refresh(force=True)
+        else:
+            sys.stdout.write(self._render_text())
         if not self._jupyter:
             sys.stdout.write("\n")
             sys.stdout.flush()
-        self._closed = True
+        self._finished = True
 
     # ── Iterator + context manager ──
 
     def __iter__(self) -> Iterator[_T]:
         if self.iterable is None:
-            raise TypeError("ProgressBar has no iterable; use update() instead.")
+            raise TypeError("Progress has no iterable; use update() instead.")
         if self._start is None:
             self._start = time.monotonic()
         self._refresh(force=True)
@@ -264,19 +293,19 @@ class ProgressBar(Generic[_T]):
                 yield item
                 self.update(1)
         finally:
-            self.close()
+            self.finish()
 
-    def __enter__(self):
+    def __enter__(self) -> "Progress[_T]":
         if self._start is None:
             self._start = time.monotonic()
         self._refresh(force=True)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+    def __exit__(self, exc_type, exc_value, traceback) -> Literal[False]:
+        self.finish()
         return False
 
 
-def track(iterable: Iterable[_T] | None = None, **kwargs) -> ProgressBar[_T]:
-    """tqdm-style convenience wrapper around :class:`ProgressBar`."""
-    return ProgressBar(iterable=iterable, **kwargs)
+def track(iterable: Iterable[_T] | None = None, **kwargs) -> Progress[_T]:
+    """Return a :class:`Progress` iterator for ``iterable``."""
+    return Progress(iterable=iterable, **kwargs)

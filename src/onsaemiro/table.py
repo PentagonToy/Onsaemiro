@@ -1,12 +1,11 @@
-"""Console and Jupyter table rendering."""
+"""Portable table rendering for terminals and notebooks."""
 
 import csv
 from collections.abc import Callable, Iterable, Mapping, Sequence
-import html as _html
+import html
 from os import PathLike
-import sys
-from io import StringIO
 from pathlib import Path
+import sys
 from typing import Any
 
 from ._environment import _is_jupyter
@@ -15,206 +14,61 @@ from ._environment import _is_jupyter
 _TABLE_MODES = ("static", "live", "dynamic")
 
 
-class TableMaker:
-    """Table for console / Jupyter with optional live updates."""
+class Table:
+    """A small scientific table with plain-text and HTML representations."""
 
-    def __init__(
-        self,
-        title: str = "Analysis",
-        columns: Iterable[str] | None = None,
-        mode: str = "static",
-        *,
-        formatters: (
-            Mapping[str | int, str | Callable[[Any], Any]]
-            | Sequence[str | Callable[[Any], Any] | None]
-            | None
-        ) = None,
-    ) -> None:
+    def __init__(self, title: str = "Analysis", columns: Iterable[str] | None = None, mode: str = "static", *, formatters: Mapping[str | int, str | Callable[[Any], Any]] | Sequence[str | Callable[[Any], Any] | None] | None = None) -> None:
         if mode not in _TABLE_MODES:
-            raise ValueError(
-                f"Unknown mode {mode!r}; expected one of {_TABLE_MODES}."
-            )
+            raise ValueError(f"Unknown mode {mode!r}; expected one of {_TABLE_MODES}.")
         self.title = title
         self.columns = list(columns or ["Parameter", "Value", "Unit"])
         if not self.columns:
-            raise ValueError("TableMaker requires at least one column.")
+            raise ValueError("Table requires at least one column.")
         self.data: list[list[str]] = []
         self.mode = mode
         self.formatters = formatters
         self._jupyter = _is_jupyter()
         self._handle = None
-        self._console: Any = None
-        self._live: Any = None
-        self._closed = False
-
-    # ── Renderers ──
-
-    def _render_html(self):
-        """
-        Academic-style (Booktabs) table.
-        Works perfectly in both Light and Dark modes using 'currentColor'.
-        All text content is HTML-escaped to survive arbitrary data.
-        """
-        # ── Design Constants ──
-        LINE_COLOR = "currentColor"
-        TEXT_COLOR = "currentColor"
-        FONT_FAMILY = "'Times New Roman', Times, serif"
-
-        esc = _html.escape
-
-        # Header cells (wrapped in a single <tr>)
-        hdr_cells = ""
-        for i, c in enumerate(self.columns):
-            align = "left" if i == 0 else "right"
-            hdr_cells += (
-                f'<th style="padding:10px 14px; text-align:{align}; '
-                f'font-weight:bold; color:{TEXT_COLOR}; '
-                f'border-top:2.5px solid {LINE_COLOR}; '
-                f'border-bottom:1.2px solid {LINE_COLOR}; '
-                f'font-size:14px; background:none">{esc(str(c))}</th>'
-            )
-        hdr = f'<tr>{hdr_cells}</tr>'
-
-        # Body rows
-        body = ""
-        for r, row in enumerate(self.data):
-            cells = ""
-            is_last = (r == len(self.data) - 1)
-            bottom_border = f"2.5px solid {LINE_COLOR}" if is_last else "none"
-
-            for i, c in enumerate(row):
-                align = "left" if i == 0 else "right"
-                cells += (
-                    f'<td style="padding:8px 14px; text-align:{align}; '
-                    f'font-size:13px; color:{TEXT_COLOR}; '
-                    f'border-bottom:{bottom_border}; background:none">'
-                    f'{esc(str(c))}</td>'
-                )
-            body += f'<tr>{cells}</tr>'
-
-        return (
-            f'<div style="margin:15px 0; display:inline-block; background:none">'
-            f'<div style="font-family:{FONT_FAMILY}; font-weight:bold; color:{TEXT_COLOR}; '
-            f'font-size:14px; margin-bottom:10px; text-align:left">{esc(str(self.title))}</div>'
-            f'<table style="border-collapse:collapse; font-family:{FONT_FAMILY}; '
-            f'border:none; line-height:1.5; color:{TEXT_COLOR}; background:none">'
-            f'<thead>{hdr}</thead>'
-            f'<tbody>{body}</tbody></table></div>'
-        )
-
-    def _render_rich_table(self):
-        """Build the Rich table used by terminal renderers."""
-        from rich.table import Table
-        from rich.text import Text
-
-        table = Table(
-            title=Text(str(self.title))
-        )
-
-        for index, column in enumerate(
-            self.columns
-        ):
-            table.add_column(
-                Text(str(column)),
-                justify=(
-                    "left"
-                    if index == 0
-                    else "right"
-                ),
-            )
-
-        for row in self.data:
-            table.add_row(
-                *[
-                    Text(str(value))
-                    for value in row
-                ]
-            )
-
-        return table
-
-    def _render_text(self):
-        """Render a static Rich-formatted terminal table."""
-        from rich.console import Console
-
-        buffer = StringIO()
-
-        Console(
-            file=buffer,
-            force_jupyter=False,
-            force_terminal=sys.stdout.isatty(),
-            width=120,
-        ).print(
-            self._render_rich_table()
-        )
-
-        return buffer.getvalue()
-
-    # ── Row management ──
+        self._finished = False
+        self._rendered_lines = 0
 
     def _normalise_row(self, values: tuple[Any, ...]) -> list[str]:
-        if len(values) == 1 and isinstance(values[0], (list, tuple)):
-            row = list(values[0])
-        else:
-            row = list(values)
-
+        row = list(values[0]) if len(values) == 1 and isinstance(values[0], (list, tuple)) else list(values)
         if len(row) != len(self.columns):
-            raise ValueError(
-                f"Expected {len(self.columns)} values, received {len(row)}."
-            )
-
-        formatted = []
+            raise ValueError(f"Expected {len(self.columns)} values, received {len(row)}.")
+        result = []
         for index, value in enumerate(row):
             formatter = None
             if isinstance(self.formatters, dict):
-                formatter = self.formatters.get(
-                    self.columns[index],
-                    self.formatters.get(index),
-                )
+                formatter = self.formatters.get(self.columns[index], self.formatters.get(index))
             elif self.formatters is not None and index < len(self.formatters):
                 formatter = self.formatters[index]
-
             if formatter is None:
-                formatted.append(str(value))
+                result.append(str(value))
             elif callable(formatter):
-                formatted.append(str(formatter(value)))
+                result.append(str(formatter(value)))
             else:
-                formatted.append(format(value, str(formatter)))
-
-        return formatted
+                result.append(format(value, str(formatter)))
+        return result
 
     def add_row(self, *values: Any) -> None:
-        """Add a row to the table.
-        Accepts either positional arguments or a single list/tuple:
-            table.add_row("a", "b", "c")
-            table.add_row(["a", "b", "c"])
-        """
+        """Add a row and refresh live output."""
         self.data.append(self._normalise_row(values))
-        if self.mode in ("live", "dynamic"):
+        if self.mode in {"live", "dynamic"}:
             self._update()
 
     def update_row(self, index: int, *values: Any) -> None:
-        """Replace an existing row and refresh live output."""
+        """Replace a row and refresh live output."""
         if not isinstance(index, int) or isinstance(index, bool):
             raise TypeError("Row index must be an integer.")
-
         try:
             self.data[index] = self._normalise_row(values)
         except IndexError as error:
-            raise IndexError(
-                f"Row index out of range: {index}"
-            ) from error
-
-        if self.mode in ("live", "dynamic"):
+            raise IndexError(f"Row index out of range: {index}") from error
+        if self.mode in {"live", "dynamic"}:
             self._update()
 
-    def sort(
-        self,
-        column: str | int = 0,
-        *,
-        reverse: bool = False,
-        key: Callable[[str], Any] | None = None,
-    ) -> "TableMaker":
+    def sort(self, column: str | int = 0, *, reverse: bool = False, key: Callable[[str], Any] | None = None) -> "Table":
         """Sort rows in place by a column name or index."""
         if isinstance(column, str):
             try:
@@ -225,18 +79,64 @@ class TableMaker:
             raise TypeError("column must be a name or integer index.")
         if not -len(self.columns) <= column < len(self.columns):
             raise IndexError(f"Column index out of range: {column}")
-
         value_key = key or (lambda value: value)
-        self.data.sort(
-            key=lambda row: value_key(row[column]),
-            reverse=reverse,
-        )
-        if self.mode in ("live", "dynamic"):
+        self.data.sort(key=lambda row: value_key(row[column]), reverse=reverse)
+        if self.mode in {"live", "dynamic"}:
             self._update()
         return self
 
+    def to_text(self) -> str:
+        """Return a Unicode table suitable for terminals and logs."""
+        rows = [self.columns, *self.data]
+        widths = [max(len(str(row[index])) for row in rows) for index in range(len(self.columns))]
+        border = "─┼─".join("─" * width for width in widths)
+        lines = [str(self.title), "   ".join(value.ljust(widths[index]) for index, value in enumerate(self.columns)), border]
+        lines.extend("   ".join(value.ljust(widths[index]) for index, value in enumerate(row)) for row in self.data)
+        return "\n".join(lines) + "\n"
+
+    def to_html(self) -> str:
+        """Return a portable HTML table."""
+        esc = html.escape
+        headings = "".join(f'<th style="padding:6px 10px;text-align:{"left" if i == 0 else "right"};border-bottom:1px solid currentColor">{esc(str(value))}</th>' for i, value in enumerate(self.columns))
+        rows = "".join("<tr>" + "".join(f'<td style="padding:5px 10px;text-align:{"left" if i == 0 else "right"}">{esc(str(value))}</td>' for i, value in enumerate(row)) + "</tr>" for row in self.data)
+        return f'<div style="display:inline-block;color:currentColor"><strong>{esc(str(self.title))}</strong><table style="border-collapse:collapse;margin-top:6px"><thead><tr>{headings}</tr></thead><tbody>{rows}</tbody></table></div>'
+
+    def _repr_mimebundle_(self, include=None, exclude=None) -> dict[str, str]:
+        return {"text/plain": self.to_text(), "text/html": self.to_html()}
+
+    def _update(self) -> None:
+        if self._jupyter:
+            from IPython.display import HTML, display
+            rendered = HTML(self.to_html())
+            if self._handle is None:
+                self._handle = display(rendered, display_id=True)
+            else:
+                self._handle.update(rendered)
+        elif sys.stdout.isatty():
+            if self._rendered_lines:
+                sys.stdout.write(f"\033[{self._rendered_lines}F\033[J")
+            output = self.to_text()
+            sys.stdout.write(output)
+            sys.stdout.flush()
+            self._rendered_lines = output.count("\n")
+
+    def show(self) -> None:
+        """Display the table in the current environment."""
+        if self._jupyter:
+            from IPython.display import HTML, display
+            display(HTML(self.to_html()))
+        else:
+            print(self.to_text(), end="")
+
+    def finish(self) -> None:
+        """Preserve the final state of a live table."""
+        if self._finished:
+            return
+        if self.mode in {"live", "dynamic"} and not self._jupyter and not sys.stdout.isatty():
+            print(self.to_text(), end="")
+        self._finished = True
+
     def to_csv(self, path: str | PathLike[str]) -> Path:
-        """Export the table, including its header, to CSV."""
         destination = Path(path).expanduser()
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("w", newline="", encoding="utf-8") as stream:
@@ -245,133 +145,23 @@ class TableMaker:
             writer.writerows(self.data)
         return destination
 
-    def to_latex(
-        self,
-        path: str | PathLike[str] | None = None,
-        *,
-        caption: str | None = None,
-        label: str | None = None,
-    ) -> str:
+    def to_latex(self, path: str | PathLike[str] | None = None, *, caption: str | None = None, label: str | None = None) -> str:
         """Return a booktabs LaTeX table and optionally write it to a file."""
+        replacements = {"\\": r"\textbackslash{}", "&": r"\&", "%": r"\%", "$": r"\$", "#": r"\#", "_": r"\_", "{": r"\{", "}": r"\}"}
         def escape(value: object) -> str:
-            replacements = {
-                "\\": r"\textbackslash{}",
-                "&": r"\&",
-                "%": r"\%",
-                "$": r"\$",
-                "#": r"\#",
-                "_": r"\_",
-                "{": r"\{",
-                "}": r"\}",
-            }
-            return "".join(
-                replacements.get(character, character)
-                for character in str(value)
-            )
-
-        alignment = "l" + "r" * (len(self.columns) - 1)
+            return "".join(replacements.get(character, character) for character in str(value))
         lines = [r"\begin{table}", r"\centering"]
         if caption is not None:
             lines.append(rf"\caption{{{escape(caption)}}}")
         if label is not None:
             lines.append(rf"\label{{{escape(label)}}}")
-        lines.extend(
-            [
-                rf"\begin{{tabular}}{{{alignment}}}",
-                r"\toprule",
-                " & ".join(escape(value) for value in self.columns) + r" \\",
-                r"\midrule",
-            ]
-        )
-        lines.extend(
-            " & ".join(escape(value) for value in row) + r" \\"
-            for row in self.data
-        )
-        lines.extend(
-            [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
-        )
+        row_end = " " + "\\" * 2
+        lines.extend([rf"\begin{{tabular}}{{{'l' + 'r' * (len(self.columns) - 1)}}}", r"\toprule", " & ".join(map(escape, self.columns)) + row_end, r"\midrule"])
+        lines.extend(" & ".join(map(escape, row)) + row_end for row in self.data)
+        lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}"])
         output = "\n".join(lines) + "\n"
-
         if path is not None:
             destination = Path(path).expanduser()
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(output, encoding="utf-8")
-
         return output
-
-    # ── Update logic ──
-
-    def _update(self):
-        if self._jupyter:
-            self._update_jupyter()
-        else:
-            self._update_terminal()
-
-    def _update_terminal(self):
-        if not sys.stdout.isatty():
-            return
-
-        from rich.console import Console
-        from rich.live import Live
-
-        renderable = self._render_rich_table()
-
-        if self._live is None:
-            self._console = Console(
-                file=sys.stdout,
-                force_jupyter=False,
-            )
-            self._live = Live(
-                renderable,
-                console=self._console,
-                auto_refresh=False,
-                transient=False,
-            )
-            self._live.start(
-                refresh=True
-            )
-        else:
-            self._live.update(
-                renderable,
-                refresh=True,
-            )
-
-    def _update_jupyter(self):
-        from IPython.display import display, HTML
-        html = HTML(self._render_html())
-        if self._handle is None:
-            self._handle = display(html, display_id=True)
-        else:
-            self._handle.update(html)
-
-    # ── Lifecycle ──
-
-    def close(self):
-        """Finish live output and preserve the final table."""
-        if self._closed:
-            return
-
-        if self._live is not None:
-            self._live.stop()
-            self._live = None
-            self._console = None
-        elif (
-            not self._jupyter
-            and self.mode in ("live", "dynamic")
-            and not sys.stdout.isatty()
-        ):
-            print(
-                self._render_text(),
-                end="",
-            )
-
-        self._closed = True
-
-    # ── Static display ──
-
-    def display(self):
-        if self._jupyter:
-            from IPython.display import display as ipy_display, HTML
-            ipy_display(HTML(self._render_html()))
-        else:
-            print(self._render_text(), end="")

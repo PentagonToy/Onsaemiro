@@ -12,6 +12,7 @@ def test_public_api():
         "Palette",
         "get_palette",
         "build_color_map",
+        "build_style_map",
         "register_palette",
         "save_palette",
         "load_palette",
@@ -19,23 +20,29 @@ def test_public_api():
         "reset_style",
         "journal_preset",
         "set_journal_style",
-        "fixed_frame",
+        "figsize",
+        "subplots",
         "export_figure",
         "finalize",
         "style_colorbar",
         "annotate_panels",
         "enable_minor_ticks",
         "apply_grid",
-        "TableMaker",
-        "ProgressBar",
+        "Table",
+        "Progress",
         "track",
         "sleep",
+        "echo",
+        "rule",
         "info",
     ]
 
     missing = [name for name in expected if not hasattr(osm, name)]
 
     assert not missing
+    assert not hasattr(osm, "fixed_frame")
+    assert not hasattr(osm, "TableMaker")
+    assert not hasattr(osm, "ProgressBar")
 
 
 def test_plotting_api():
@@ -55,7 +62,7 @@ def test_plotting_api():
 
 
 def test_table_api():
-    table = osm.TableMaker(
+    table = osm.Table(
         title="Test",
         columns=["Name", "Value"],
         mode="static",
@@ -67,10 +74,10 @@ def test_table_api():
 
 
 def test_progress_api():
-    progress = osm.ProgressBar(total=2, desc="Test")
+    progress = osm.Progress(total=2, desc="Test")
 
     progress.update()
     progress.update()
-    progress.close()
+    progress.finish()
 
     assert progress.n == 2

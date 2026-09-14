@@ -1,0 +1,24 @@
+site_name: Onsaemiro
+site_description: Publication-ready figures and portable scientific output for Python
+repo_url: https://github.com/PentagonToy/Onsaemiro
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - User guide:
+      - Figures: figures.md
+      - Portable output: output.md
+      - Journal sizes: journal.md
+  - API reference: api.md
+  - Changelog: https://github.com/PentagonToy/Onsaemiro/blob/main/CHANGELOG.md
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences

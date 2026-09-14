@@ -11,6 +11,13 @@ def test_build_color_map_preserves_first_unique_label_order():
     assert mapping == {"alpha": palette[0], "beta": palette[1]}
 
 
+def test_build_style_map_uses_more_than_colour():
+    mapping = osm.build_style_map([f"case-{index}" for index in range(10)])
+    assert mapping["case-0"]["color"] == mapping["case-8"]["color"]
+    assert mapping["case-0"]["linestyle"] != mapping["case-8"]["linestyle"]
+    assert set(mapping["case-0"]) == {"color", "linestyle", "marker"}
+
+
 @pytest.mark.parametrize("value", [0, -1, 1.5, True])
 def test_palette_size_must_be_a_positive_integer(value):
     with pytest.raises(ValueError, match="positive integer"):
@@ -33,4 +40,3 @@ def test_custom_palette_round_trip(tmp_path):
     )
     assert restored["cold"] == "#123456"
     assert restored["hot"] == "#abcdef"
-

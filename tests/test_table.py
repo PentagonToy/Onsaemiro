@@ -1,4 +1,4 @@
-"""Tests for TableMaker rendering and row insertion functionality."""
+"""Tests for table rendering and row insertion functionality."""
 
 import pytest
 import onsaemiro as osm
@@ -6,7 +6,7 @@ import onsaemiro as osm
 
 def test_table_maker_add_row_variants():
     """Verify add_row supports positional arguments, lists, and tuples."""
-    table = osm.TableMaker(
+    table = osm.Table(
         title="Thermodynamics & Kinetics Summary",
         columns=["Parameter", "Value", "Unit"],
     )
@@ -31,7 +31,7 @@ def test_table_maker_add_row_variants():
 
 def test_table_maker_update_row_variants():
     """Verify update_row replaces rows using supported input forms."""
-    table = osm.TableMaker(
+    table = osm.Table(
         title="Build Status",
         columns=["Component", "Status"],
     )
@@ -49,7 +49,7 @@ def test_table_maker_update_row_variants():
 
 def test_table_maker_update_row_refreshes_live_table(monkeypatch):
     """Verify live tables refresh after an existing row changes."""
-    table = osm.TableMaker(
+    table = osm.Table(
         title="Build Status",
         columns=["Component", "Status"],
         mode="live",
@@ -75,7 +75,7 @@ def test_table_maker_update_row_refreshes_live_table(monkeypatch):
 
 def test_table_maker_update_row_rejects_invalid_index():
     """Verify update_row validates row indices."""
-    table = osm.TableMaker()
+    table = osm.Table()
     table.add_row("Temperature", "400", "K")
 
     with pytest.raises(
@@ -103,14 +103,14 @@ def test_table_maker_update_row_rejects_invalid_index():
 
 def test_table_maker_render_output(capsys):
     """Verify standard text rendering output in console mode."""
-    table = osm.TableMaker(
+    table = osm.Table(
         title="Species Concentration",
         columns=["Species", "Mole Fraction"],
     )
     table.add_row("CH4", 0.0950)
     table.add_row(["O2", 0.1900])
 
-    table.display()
+    table.show()
     captured = capsys.readouterr()
 
     assert "Species Concentration" in captured.out
@@ -121,13 +121,13 @@ def test_table_maker_render_output(capsys):
 def test_invalid_mode():
     """Verify ValueError when passing an unsupported table mode."""
     with pytest.raises(ValueError, match="Unknown mode 'invalid'"):
-        osm.TableMaker(mode="invalid")
+        osm.Table(mode="invalid")
 
 def test_live_table_suppresses_intermediate_non_tty_output(
     capsys,
 ):
     """Verify redirected live output emits only the final table."""
-    table = osm.TableMaker(
+    table = osm.Table(
         title="Build Status",
         columns=["Component", "Status"],
         mode="live",
@@ -152,7 +152,7 @@ def test_live_table_suppresses_intermediate_non_tty_output(
 
     assert intermediate.out == ""
 
-    table.close()
+    table.finish()
 
     final = capsys.readouterr()
 
@@ -164,11 +164,11 @@ def test_live_table_suppresses_intermediate_non_tty_output(
     assert "\033[" not in final.out
 
 
-def test_live_table_close_is_idempotent(
+def test_live_table_finish_is_idempotent(
     capsys,
 ):
     """Verify closing a live table more than once emits no duplicate."""
-    table = osm.TableMaker(
+    table = osm.Table(
         title="Build Status",
         columns=["Component", "Status"],
         mode="live",
@@ -178,10 +178,10 @@ def test_live_table_close_is_idempotent(
         "Done",
     )
 
-    table.close()
+    table.finish()
     first = capsys.readouterr()
 
-    table.close()
+    table.finish()
     second = capsys.readouterr()
 
     assert "OpenFOAM" in first.out
@@ -189,13 +189,13 @@ def test_live_table_close_is_idempotent(
 
 
 def test_table_rejects_wrong_row_width():
-    table = osm.TableMaker(columns=["Name", "Value"])
+    table = osm.Table(columns=["Name", "Value"])
     with pytest.raises(ValueError, match="Expected 2 values"):
         table.add_row("only-one")
 
 
 def test_table_format_sort_and_exports(tmp_path):
-    table = osm.TableMaker(
+    table = osm.Table(
         title="Results",
         columns=["Case", "Error"],
         formatters={"Error": ".2f"},

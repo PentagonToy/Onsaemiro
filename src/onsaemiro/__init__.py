@@ -6,6 +6,7 @@ from .palette import (
     Palette,
     get_palette,
     build_color_map,
+    build_style_map,
     register_palette,
     save_palette,
     load_palette,
@@ -15,7 +16,8 @@ from .style import (
     reset_style,
     journal_preset,
     set_journal_style,
-    fixed_frame,
+    figsize,
+    subplots,
     export_figure,
 )
 from .helpers import (
@@ -25,8 +27,9 @@ from .helpers import (
     enable_minor_ticks,
     apply_grid,
 )
-from .table import TableMaker
-from .progress import ProgressBar, track, sleep
+from .table import Table
+from .progress import Progress, track, sleep
+from .terminal import echo, rule
 from .info import info
 
 __all__ = [
@@ -34,6 +37,7 @@ __all__ = [
     "Palette",
     "get_palette",
     "build_color_map",
+    "build_style_map",
     "register_palette",
     "save_palette",
     "load_palette",
@@ -41,16 +45,19 @@ __all__ = [
     "reset_style",
     "journal_preset",
     "set_journal_style",
-    "fixed_frame",
+    "figsize",
+    "subplots",
     "export_figure",
     "finalize",
     "style_colorbar",
     "annotate_panels",
     "enable_minor_ticks",
     "apply_grid",
-    "TableMaker",
-    "ProgressBar",
+    "Table",
+    "Progress",
     "track",
     "sleep",
+    "echo",
+    "rule",
     "info",
 ]

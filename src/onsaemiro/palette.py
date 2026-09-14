@@ -168,6 +168,24 @@ def build_color_map(
     }
 
 
+def build_style_map(
+    labels: Iterable[Any],
+    palette: str | Palette = "okabe-ito",
+) -> dict[Any, dict[str, str]]:
+    """Map labels to distinct colour, line-style, and marker combinations."""
+    colours = get_palette(palette=palette)
+    line_styles = ("-", "--", "-.", ":")
+    markers = ("o", "s", "^", "D", "v", "P", "X")
+    return {
+        label: {
+            "color": colours[index],
+            "linestyle": line_styles[(index // len(colours)) % len(line_styles)],
+            "marker": markers[(index // (len(colours) * len(line_styles))) % len(markers)],
+        }
+        for index, label in enumerate(dict.fromkeys(labels))
+    }
+
+
 def register_palette(
     name: str,
     colors: Mapping[str, str] | Iterable[str],
