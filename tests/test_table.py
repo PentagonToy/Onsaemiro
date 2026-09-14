@@ -1,5 +1,7 @@
 """Tests for table rendering and row insertion functionality."""
 
+from types import MappingProxyType
+
 import pytest
 import onsaemiro as osm
 
@@ -238,3 +240,14 @@ def test_table_format_sort_and_exports(tmp_path):
     latex = table.to_latex(caption="A & B", label="tab:results")
     assert r"\caption{A \& B}" in latex
     assert r"\toprule" in latex
+
+
+def test_table_accepts_read_only_formatter_mapping():
+    table = osm.Table(
+        columns=["Case", "Error"],
+        formatters=MappingProxyType({"Error": ".2f"}),
+    )
+
+    table.add_row("A", 1.234)
+
+    assert table.data == [["A", "1.23"]]

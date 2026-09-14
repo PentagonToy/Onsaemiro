@@ -2,6 +2,13 @@
 
 This changelog records user-visible Onsaemiro changes in reverse chronological order.
 
+## [1.1.3] - Unreleased
+
+- `build_style_map()` now varies colour, line style, and marker across adjacent series instead of exhausting the palette before adding non-colour distinctions.
+- `Progress.set()` now respects `mininterval`, preventing metric updates from forcing an expensive refresh in tight loops.
+- `Table` now accepts every declared `Mapping` implementation for keyed formatters.
+- `subplots()` now forwards `sharex` and `sharey` directly to Matplotlib.
+
 ## [1.1.2] - 2026-09-14
 
 - Plain-text tables now use Rich for polished terminal layout, wrapping, and alignment, while Jupyter tables restore Onsaemiro's signature publication-style booktabs presentation.

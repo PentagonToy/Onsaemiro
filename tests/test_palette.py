@@ -13,8 +13,10 @@ def test_build_color_map_preserves_first_unique_label_order():
 
 def test_build_style_map_uses_more_than_colour():
     mapping = osm.build_style_map([f"case-{index}" for index in range(10)])
+    assert mapping["case-0"]["linestyle"] != mapping["case-1"]["linestyle"]
+    assert mapping["case-0"]["marker"] != mapping["case-1"]["marker"]
     assert mapping["case-0"]["color"] == mapping["case-8"]["color"]
-    assert mapping["case-0"]["linestyle"] != mapping["case-8"]["linestyle"]
+    assert mapping["case-0"] != mapping["case-8"]
     assert set(mapping["case-0"]) == {"color", "linestyle", "marker"}
 
 

@@ -50,6 +50,14 @@ def test_subplots_supports_constrained_layout():
     plt.close(fig)
 
 
+def test_subplots_forwards_shared_axis_configuration():
+    fig, axes = osm.subplots(1, 2, sharex=True, sharey="all")
+
+    assert axes[0].get_shared_x_axes().joined(axes[0], axes[1])
+    assert axes[0].get_shared_y_axes().joined(axes[0], axes[1])
+    plt.close(fig)
+
+
 @pytest.mark.parametrize("journal", ["nature", "science", "ieee", "aps"])
 def test_journal_presets_apply(journal):
     options = osm.set_journal_style(journal)

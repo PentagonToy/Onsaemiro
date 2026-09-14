@@ -3,7 +3,7 @@
 from collections.abc import Iterable, Mapping
 from os import PathLike
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import matplotlib.pyplot as plt
 
@@ -235,6 +235,8 @@ def subplots(
     gridspec_kw: Mapping[str, Any] | None = None,
     widths: Iterable[float] | None = None,
     heights: Iterable[float] | None = None,
+    sharex: bool | Literal["none", "all", "row", "col"] = False,
+    sharey: bool | Literal["none", "all", "row", "col"] = False,
     squeeze: bool = True,
     layout: str | None = None,
     **ax_kw: Any,
@@ -258,6 +260,8 @@ def subplots(
         ncols=ncols,
         figsize=fs,
         gridspec_kw=grid or None,
+        sharex=sharex,
+        sharey=sharey,
         squeeze=squeeze,
         layout=layout,
         subplot_kw=ax_kw or None,

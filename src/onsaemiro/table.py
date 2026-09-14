@@ -46,7 +46,7 @@ class Table:
         result = []
         for index, value in enumerate(row):
             formatter = None
-            if isinstance(self.formatters, dict):
+            if isinstance(self.formatters, Mapping):
                 formatter = self.formatters.get(self.columns[index], self.formatters.get(index))
             elif self.formatters is not None and index < len(self.formatters):
                 formatter = self.formatters[index]

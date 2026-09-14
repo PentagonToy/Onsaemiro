@@ -32,6 +32,7 @@ Presets are reproducible defaults, not publisher guarantees. Verify the current 
 fig, ax = osm.subplots(figsize=(4.0, 3.0))
 fig, axes = osm.subplots(2, 2)
 fig, axes = osm.subplots(1, 2, widths=[2, 1])
+fig, axes = osm.subplots(1, 2, sharex=True)
 fig, axes = osm.subplots(ncols=2, layout="constrained")
 ```
 
@@ -42,6 +43,7 @@ Pass either `figsize=` or `journal=`, not both. Use `layout="constrained"` or `l
 | Single panel | `osm.subplots()` | One primary axes is sufficient |
 | Uniform grid | `osm.subplots(2, 2)` | Panels share equal space |
 | Ratio grid | `osm.subplots(1, 2, widths=[2, 1])` | Panels need different widths |
+| Shared axes | `osm.subplots(1, 2, sharex=True)` | Panels use a common coordinate scale |
 | Constrained | `osm.subplots(ncols=2, layout="constrained")` | Colour bars or long labels need adaptive spacing |
 
 ## Distinguish data series
@@ -52,7 +54,7 @@ for label, values in series.items():
     ax.plot(x, values, **styles[label], label=label)
 ```
 
-The returned mapping contains `color`, `linestyle`, and `marker` keys and preserves the first occurrence of each label.
+The returned mapping contains `color`, `linestyle`, and `marker` keys, varies all three from the first adjacent series, and preserves the first occurrence of each label.
 
 ## Finish and export
 

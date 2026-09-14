@@ -181,8 +181,8 @@ def build_style_map(
     return {
         label: {
             "color": colours[index],
-            "linestyle": line_styles[(index // len(colours)) % len(line_styles)],
-            "marker": markers[(index // (len(colours) * len(line_styles))) % len(markers)],
+            "linestyle": line_styles[index % len(line_styles)],
+            "marker": markers[index % len(markers)],
         }
         for index, label in enumerate(dict.fromkeys(labels))
     }

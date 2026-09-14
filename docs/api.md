@@ -72,7 +72,7 @@ Supported journal names are `nature`, `science`, `ieee`, and `aps`; supported co
 ### `subplots`
 
 ```python
-subplots(nrows=1, ncols=1, *, figsize=None, journal=None, column="single", subplot=None, gridspec_kw=None, widths=None, heights=None, squeeze=True, layout=None, **subplot_kw) -> tuple[Figure, Axes | ndarray]
+subplots(nrows=1, ncols=1, *, figsize=None, journal=None, column="single", subplot=None, gridspec_kw=None, widths=None, heights=None, sharex=False, sharey=False, squeeze=True, layout=None, **subplot_kw) -> tuple[Figure, Axes | ndarray]
 ```
 
 Create ordinary Matplotlib objects. `widths` and `heights` are concise forms of GridSpec's `width_ratios` and `height_ratios`; do not supply both forms for the same dimension.
@@ -85,6 +85,7 @@ Create ordinary Matplotlib objects. `widths` and `heights` are concise forms of 
 | `subplot` | `None` | Fixed margin overrides |
 | `gridspec_kw` | `None` | Matplotlib GridSpec options |
 | `widths`, `heights` | `None` | Concise panel-ratio lists |
+| `sharex`, `sharey` | `False` | Matplotlib shared-axis configuration |
 | `squeeze` | `True` | Apply Matplotlib axes squeezing |
 | `layout` | `None` | Matplotlib layout engine name |
 
@@ -149,6 +150,8 @@ track(iterable=None, **kwargs) -> Progress
 ```
 
 Public methods are `update(n=1)`, `set_description(desc)`, `set(**metrics)`, `finish()`, `to_text()`, and `to_html()`. `Progress` also implements the context-manager protocol for structured cleanup around manually advanced work. `total` must be a non-negative integer or `None`; `width` must be positive; `smoothing` must be between zero and one.
+
+Calls to `set()` update metrics immediately but remain subject to `mininterval`; the next eligible `set()` or `update()` refresh displays the latest values. `finish()` always preserves the final state.
 
 | Parameter | Type | Default | Constraint or meaning |
 | --- | --- | --- | --- |

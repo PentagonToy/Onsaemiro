@@ -45,6 +45,20 @@ def test_progress_metrics_and_mimebundle():
     assert "loss" in bundle["text/html"]
 
 
+def test_progress_metrics_respect_refresh_interval(monkeypatch):
+    progress = osm.Progress(total=2, mininterval=999.0)
+    refreshes = []
+    monkeypatch.setattr(
+        progress,
+        "_refresh",
+        lambda *, force=False: refreshes.append(force),
+    )
+
+    progress.set(loss="0.12")
+
+    assert refreshes == [False]
+
+
 def test_progress_context_finishes(capsys):
     with osm.Progress(total=1) as progress:
         progress.update()

@@ -262,9 +262,9 @@ class Progress(Generic[_T]):
         self._refresh(force=True)
 
     def set(self, **metrics: object) -> None:
-        """Set displayed metrics such as loss or error."""
+        """Set displayed metrics and refresh when the interval has elapsed."""
         self._metrics.update(metrics)
-        self._refresh(force=True)
+        self._refresh(force=False)
 
     def finish(self) -> None:
         """Preserve the final progress state in the current environment."""
