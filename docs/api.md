@@ -30,19 +30,19 @@ Onsaemiro keeps its public API small and leaves plotting operations to Matplotli
 ### `set_style`
 
 ```python
-set_style(base_fontsize=9.5, linewidth=1.0, figure_size=(2.24, 2.20), subplot=None, use_tex=False, auto_scale=True, scale_exponent=0.5, palette="okabe-ito") -> None
+set_style(base_fontsize=9.5, linewidth=1.0, figure_size=(2.24, 2.20), subplot=None, use_tex=False, auto_scale=False, scale_exponent=0.5, palette="okabe-ito") -> None
 ```
 
-Update Matplotlib's global presentation defaults. `subplot` may override `left`, `bottom`, `right`, or `top`; `auto_scale` scales typography and strokes from the physical width.
+Update Matplotlib's global presentation defaults. `base_fontsize` is the body-text size in points. `subplot` may override `left`, `bottom`, `right`, or `top`; `auto_scale=True` explicitly scales typography and strokes from the physical width.
 
 | Parameter | Type | Default | Constraint or meaning |
 | --- | --- | --- | --- |
-| `base_fontsize` | `float` | `9.5` | Base size before optional width scaling |
+| `base_fontsize` | `float` | `9.5` | Body-text size in points before optional width scaling |
 | `linewidth` | `float` | `1.0` | Base stroke width before optional scaling |
 | `figure_size` | `tuple[float, float]` | `(2.24, 2.20)` | Width and height in inches |
 | `subplot` | mapping or `None` | `None` | Overrides fixed `left`, `bottom`, `right`, or `top` fractions |
 | `use_tex` | `bool` | `False` | Enable Matplotlib TeX rendering |
-| `auto_scale` | `bool` | `True` | Scale typography and strokes from figure width |
+| `auto_scale` | `bool` | `False` | Opt in to scaling typography and strokes from figure width |
 | `scale_exponent` | `float` | `0.5` | Width-scaling exponent |
 | `palette` | `str` | `"okabe-ito"` | Registered palette name |
 
@@ -62,7 +62,7 @@ set_journal_style(name="science", column="single", **overrides) -> dict[str, obj
 figsize(name="science", column="single") -> tuple[float, float]
 ```
 
-Supported journal names are `nature`, `science`, `ieee`, and `aps`; supported column widths are `single` and `double`. `set_journal_style()` returns the applied options.
+Supported journal names are `nature`, `science`, `ieee`, and `aps`; supported column widths are `single` and `double`. Journal typography uses stable point sizes at both column widths. `set_journal_style()` returns the applied options.
 
 | Parameter | Type | Default | Allowed values |
 | --- | --- | --- | --- |

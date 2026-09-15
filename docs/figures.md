@@ -2,7 +2,7 @@
 
 ## Configure presentation defaults
 
-`set_style()` configures typography, line widths, ticks, subplot margins, and the default colour cycle. Its defaults match the Science single-column preset. It changes Matplotlib's global `rcParams`; call `reset_style()` to restore Matplotlib defaults.
+`set_style()` configures typography, line widths, ticks, subplot margins, and the default colour cycle. Its defaults match the Science single-column preset, and its font sizes remain stable when the figure dimensions change. It changes Matplotlib's global `rcParams`; call `reset_style()` to restore Matplotlib defaults.
 
 ```python
 osm.set_style(palette="okabe-ito", use_tex=False)
@@ -15,6 +15,8 @@ options = osm.set_journal_style("ieee", column="single")
 ```
 
 Presets are reproducible defaults, not publisher guarantees. Verify the current author instructions before submission.
+
+Journal presets keep typography at readable publication point sizes for both single- and double-column figures. Marker sizes follow the configured body-text size, and a small data margin keeps boundary markers inside the axes frame without changing the requested physical figure dimensions. For an unusual custom size, pass `auto_scale=True` to scale typography and strokes with the width.
 
 | Need | Recommended API |
 | --- | --- |

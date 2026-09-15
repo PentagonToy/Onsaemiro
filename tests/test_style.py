@@ -12,6 +12,45 @@ import onsaemiro as osm
 def test_default_style_uses_science_single_column():
     osm.set_style()
     assert tuple(plt.rcParams["figure.figsize"]) == osm.figsize("science", "single")
+    assert plt.rcParams["font.size"] == 9.5
+    assert plt.rcParams["axes.labelsize"] == 9.5
+    assert plt.rcParams["xtick.labelsize"] == 8.5
+    assert plt.rcParams["legend.fontsize"] == 8.5
+    assert plt.rcParams["lines.markersize"] == 7.125
+    assert plt.rcParams["axes.xmargin"] == 0.05
+    assert plt.rcParams["axes.ymargin"] == 0.05
+    osm.reset_style()
+
+
+def test_custom_style_can_opt_in_to_width_scaling():
+    osm.set_style(base_fontsize=10.0, figure_size=(6.0, 4.0), auto_scale=True)
+    assert plt.rcParams["font.size"] == 10.0
+    osm.set_style(base_fontsize=10.0, figure_size=(3.0, 2.0), auto_scale=True)
+    assert plt.rcParams["font.size"] < 10.0
+    osm.reset_style()
+
+
+def test_markers_follow_typography_without_becoming_too_small():
+    osm.set_style(base_fontsize=12.0, auto_scale=False)
+    assert plt.rcParams["lines.markersize"] == 9.0
+    osm.set_style(base_fontsize=3.0, auto_scale=False)
+    assert plt.rcParams["lines.markersize"] == 4.0
+    osm.reset_style()
+
+
+def test_default_margin_keeps_boundary_markers_inside_axes():
+    osm.set_style()
+    fig, ax = osm.subplots()
+    line, = ax.plot([0.0, 1.0], [0.0, 1.0], marker="o")
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    marker_bounds = line.get_window_extent(renderer)
+    axes_bounds = ax.get_window_extent(renderer)
+    assert marker_bounds.x0 >= axes_bounds.x0
+    assert marker_bounds.y0 >= axes_bounds.y0
+    assert marker_bounds.x1 <= axes_bounds.x1
+    assert marker_bounds.y1 <= axes_bounds.y1
+    plt.close(fig)
     osm.reset_style()
 
 
@@ -62,6 +101,16 @@ def test_subplots_forwards_shared_axis_configuration():
 def test_journal_presets_apply(journal):
     options = osm.set_journal_style(journal)
     assert tuple(plt.rcParams["figure.figsize"]) == options["figure_size"]
+    assert plt.rcParams["font.size"] == options["base_fontsize"]
+    osm.reset_style()
+
+
+def test_journal_typography_is_stable_across_column_widths():
+    single = osm.set_journal_style("science", column="single")
+    single_fontsize = plt.rcParams["font.size"]
+    double = osm.set_journal_style("science", column="double")
+    assert single["base_fontsize"] == double["base_fontsize"]
+    assert plt.rcParams["font.size"] == single_fontsize
     osm.reset_style()
 
 

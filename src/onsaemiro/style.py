@@ -16,6 +16,15 @@ _REF_WIDTH = 6.0
 _SCALE_EXPONENT = 0.5
 
 
+_DATA_MARGIN = 0.05
+
+
+_MARKER_TO_FONT_RATIO = 0.75
+
+
+_MIN_MARKERSIZE = 4.0
+
+
 _DEFAULT_SUBPLOT = {
     "left":   0.18,
     "bottom": 0.20,
@@ -63,7 +72,7 @@ def set_style(
     figure_size: tuple[float, float] = (2.24, 2.20),
     subplot: Mapping[str, float] | None = None,
     use_tex: bool = False,
-    auto_scale: bool = True,
+    auto_scale: bool = False,
     scale_exponent: float = _SCALE_EXPONENT,
     palette: str = "okabe-ito",
 ) -> None:
@@ -81,7 +90,7 @@ def set_style(
     fs    = base_fontsize * s
     lw    = linewidth * s
     elw   = lw * 0.6
-    ms    = 9.0 * s
+    ms    = max(_MIN_MARKERSIZE, _MARKER_TO_FONT_RATIO * fs)
     major = 5.0 * s
     minor = 3.0 * s
 
@@ -90,11 +99,11 @@ def set_style(
         "font.family":           "serif",
         "font.serif":            ["Times New Roman", "Times", "DejaVu Serif"],
         "text.latex.preamble":   r"\usepackage{newtxtext,newtxmath}",
-        "font.size":             fs - 2 * s,
-        "axes.titlesize":        fs,
-        "axes.labelsize":        fs - 1 * s,
-        "xtick.labelsize":       fs - 2 * s,
-        "ytick.labelsize":       fs - 2 * s,
+        "font.size":             fs,
+        "axes.titlesize":        fs + 1 * s,
+        "axes.labelsize":        fs,
+        "xtick.labelsize":       fs - 1 * s,
+        "ytick.labelsize":       fs - 1 * s,
 
         # ── Figure ──
         "figure.figsize":        figure_size,
@@ -116,8 +125,8 @@ def set_style(
         "axes.spines.top":       True,
         "axes.spines.right":     True,
         "axes.labelpad":         6.0 * s,
-        "axes.xmargin":          0.03,
-        "axes.ymargin":          0.03,
+        "axes.xmargin":          _DATA_MARGIN,
+        "axes.ymargin":          _DATA_MARGIN,
         "axes.titlepad":         13.0 * s,
         "axes.formatter.useoffset":    False,
         "axes.formatter.use_mathtext": True,
@@ -150,7 +159,7 @@ def set_style(
         "patch.force_edgecolor": True,
 
         # ── Legend ──
-        "legend.fontsize":       fs - 4 * s,
+        "legend.fontsize":       fs - 1 * s,
         "legend.frameon":        True,
         "legend.framealpha":     1.0,
         "legend.facecolor":      "white",
