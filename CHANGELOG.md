@@ -2,7 +2,7 @@
 
 This changelog records user-visible Onsaemiro changes in reverse chronological order.
 
-## [1.1.3] - Unreleased
+## [1.1.3] - 2026-09-16
 
 - Journal styles now keep readable point-sized typography across single- and double-column figures, use typography-proportional marker sizes, and keep boundary markers inside the axes frame; width-based font scaling is available as an explicit custom-style option instead of shrinking the defaults.
 - `build_style_map()` now varies colour, line style, and marker across adjacent series instead of exhausting the palette before adding non-colour distinctions.
