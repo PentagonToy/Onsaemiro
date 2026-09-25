@@ -6,6 +6,31 @@ import pytest
 import onsaemiro as osm
 
 
+class _DataFrame:
+    """Minimal DataFrame protocol used without a pandas dependency."""
+
+    def __init__(self, columns, rows):
+        self.columns = columns
+        self.rows = rows
+
+    def itertuples(self, *, index, name):
+        assert index is False
+        assert name is None
+        return iter(self.rows)
+
+
+class _PolarsDataFrame:
+    """Minimal Polars DataFrame protocol used without a dependency."""
+
+    def __init__(self, columns, rows):
+        self.columns = columns
+        self.rows = rows
+
+    def iter_rows(self, *, named):
+        assert named is False
+        return iter(self.rows)
+
+
 def test_table_maker_add_row_variants():
     """Verify add_row supports positional arguments, lists, and tuples."""
     table = osm.Table(
@@ -251,3 +276,86 @@ def test_table_accepts_read_only_formatter_mapping():
     table.add_row("A", 1.234)
 
     assert table.data == [["A", "1.23"]]
+
+
+def test_table_from_dataframe_uses_all_columns_in_source_order():
+    dataframe = _DataFrame(
+        ["case", "phi", "eta_ref"],
+        [("lean", 0.45, 0.3123), ("rich", 1.25, 0.8765)],
+    )
+
+    table = osm.Table.from_dataframe(dataframe=dataframe)
+
+    assert table.title == "Analysis"
+    assert table.columns == ["case", "phi", "eta_ref"]
+    assert table.data == [
+        ["lean", "0.45", "0.3123"],
+        ["rich", "1.25", "0.8765"],
+    ]
+
+
+def test_table_from_dataframe_selects_and_formats_columns():
+    dataframe = _DataFrame(
+        ["case", "phi", "eta_ref"],
+        [("lean", 0.45, 0.31234)],
+    )
+
+    table = osm.Table.from_dataframe(
+        dataframe=dataframe,
+        title="Counterflow ranges",
+        columns=["eta_ref", "phi"],
+        mode="static",
+        formatters={"eta_ref": ".4f", "phi": ".2f"},
+    )
+
+    assert table.title == "Counterflow ranges"
+    assert table.columns == ["eta_ref", "phi"]
+    assert table.data == [["0.3123", "0.45"]]
+
+
+def test_table_from_polars_dataframe_uses_same_public_api():
+    dataframe = _PolarsDataFrame(
+        ["case", "phi", "eta_ref"],
+        [("lean", 0.45, 0.31234)],
+    )
+
+    table = osm.Table.from_dataframe(
+        dataframe=dataframe,
+        columns=["case", "eta_ref"],
+        formatters={"eta_ref": ".4f"},
+    )
+
+    assert table.columns == ["case", "eta_ref"]
+    assert table.data == [["lean", "0.3123"]]
+
+
+def test_table_from_dataframe_rejects_unknown_column():
+    dataframe = _DataFrame(["case"], [("lean",)])
+
+    with pytest.raises(KeyError, match="Unknown DataFrame column: 'phi'"):
+        osm.Table.from_dataframe(
+            dataframe=dataframe,
+            columns=["phi"],
+        )
+
+
+def test_table_from_dataframe_rejects_incompatible_object():
+    with pytest.raises(TypeError, match="must provide a columns attribute"):
+        osm.Table.from_dataframe(dataframe=object())
+
+
+def test_table_from_dataframe_rejects_unknown_row_protocol():
+    dataframe = type("UnsupportedDataFrame", (), {"columns": ["case"]})()
+
+    with pytest.raises(TypeError, match="itertuples.*iter_rows"):
+        osm.Table.from_dataframe(dataframe=dataframe)
+
+
+def test_table_from_dataframe_rejects_empty_selection():
+    dataframe = _DataFrame(["case"], [("lean",)])
+
+    with pytest.raises(ValueError, match="at least one selected column"):
+        osm.Table.from_dataframe(
+            dataframe=dataframe,
+            columns=[],
+        )

@@ -39,6 +39,53 @@ class Table:
         self._finished = False
         self._rendered_lines = 0
 
+    @classmethod
+    def from_dataframe(
+        cls,
+        dataframe: Any,
+        title: str = "Analysis",
+        columns: Iterable[str] | None = None,
+        mode: str = "static",
+        *,
+        formatters: Mapping[str | int, str | Callable[[Any], Any]] | Sequence[str | Callable[[Any], Any] | None] | None = None,
+    ) -> "Table":
+        """Create a table from pandas or Polars columns and rows."""
+        try:
+            source_columns = list(dataframe.columns)
+        except AttributeError as error:
+            raise TypeError(
+                "dataframe must provide a columns attribute."
+            ) from error
+
+        if callable(itertuples := getattr(dataframe, "itertuples", None)):
+            rows = itertuples(index=False, name=None)
+        elif callable(iter_rows := getattr(dataframe, "iter_rows", None)):
+            rows = iter_rows(named=False)
+        else:
+            raise TypeError(
+                "dataframe must provide pandas itertuples() or Polars iter_rows()."
+            )
+
+        selected_columns = source_columns if columns is None else list(columns)
+        if not selected_columns:
+            raise ValueError("DataFrame requires at least one selected column.")
+        positions = []
+        for column in selected_columns:
+            try:
+                positions.append(source_columns.index(column))
+            except ValueError as error:
+                raise KeyError(f"Unknown DataFrame column: {column!r}.") from error
+
+        table = cls(
+            title=title,
+            columns=[str(column) for column in selected_columns],
+            mode=mode,
+            formatters=formatters,
+        )
+        for row in rows:
+            table.add_row(*(row[position] for position in positions))
+        return table
+
     def _normalise_row(self, values: tuple[Any, ...]) -> list[str]:
         row = list(values[0]) if len(values) == 1 and isinstance(values[0], (list, tuple)) else list(values)
         if len(row) != len(self.columns):

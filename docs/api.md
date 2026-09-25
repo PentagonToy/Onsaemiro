@@ -18,6 +18,7 @@ Onsaemiro keeps its public API small and leaves plotting operations to Matplotli
 | Visual identity | `build_style_map()` | Assign colour, line style, and marker combinations | `dict` |
 | Visual identity | `register_palette()` | Register a palette for the current process | `Palette` |
 | Portable output | `Table()` | Present and export tabular results | `Table` |
+| Portable output | `Table.from_dataframe()` | Create a table from DataFrame rows | `Table` |
 | Portable output | `Progress()` | Report manually advanced work | `Progress` |
 | Portable output | `track()` | Report iterable progress | `Progress` |
 | Portable output | `echo()` | Write a semantic status message | `None` |
@@ -141,6 +142,22 @@ Table(title="Analysis", columns=None, mode="static", *, formatters=None)
 | `dynamic` | Same behaviour as `live` | Written once by `finish()` |
 
 Rows must match the configured column count. Formatters may be keyed by column name or index and may be format specifications or callables.
+
+### `Table.from_dataframe`
+
+```python
+Table.from_dataframe(dataframe, title="Analysis", columns=None, mode="static", *, formatters=None) -> Table
+```
+
+Create an independent `Table` from a pandas or Polars DataFrame without adding either library as an Onsaemiro dependency. The pandas index is excluded.
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `dataframe` | pandas or Polars DataFrame | Required | Source exposing `columns` and its native row iterator |
+| `title` | `str` | `"Analysis"` | Display title |
+| `columns` | iterable of `str` or `None` | `None` | Selected columns in display order; `None` uses every source column |
+| `mode` | `str` | `"static"` | `static`, `live`, or `dynamic` |
+| `formatters` | mapping, sequence, or `None` | `None` | Existing `Table` formatting rules |
 
 ## `Progress` and `track`
 

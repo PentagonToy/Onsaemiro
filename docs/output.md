@@ -23,6 +23,18 @@ table.sort("Case")
 table.show()
 ```
 
+Create the same portable output directly from a pandas or Polars DataFrame. All columns are included in their existing order unless `columns` selects a subset.
+
+```python
+table = osm.Table.from_dataframe(
+    dataframe=summary_df,
+    title="Counterflow ranges",
+    columns=["case", "phi", "eta_ref", "n"],
+    formatters={"phi": ".2f", "eta_ref": ".4f"},
+)
+table.show()
+```
+
 Use `to_text()` and `to_html()` for explicit rendering. `to_csv(path)` writes data with the header, and `to_latex(path=None, caption=None, label=None)` returns a booktabs table and optionally writes it.
 
 For changing data, construct `Table(..., mode="live")`, update rows, and call `finish()`. Redirected live output suppresses intermediate states and writes only the final table.

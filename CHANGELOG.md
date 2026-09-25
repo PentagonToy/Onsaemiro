@@ -2,6 +2,10 @@
 
 This changelog records user-visible Onsaemiro changes in reverse chronological order.
 
+## [Unreleased]
+
+- `Table.from_dataframe()` now creates portable tables directly from pandas and Polars columns and rows, with optional column selection and existing `Table` formatters.
+
 ## [1.1.3] - 2026-09-16
 
 - Journal styles now keep readable point-sized typography across single- and double-column figures, use typography-proportional marker sizes, and keep boundary markers inside the axes frame; width-based font scaling is available as an explicit custom-style option instead of shrinking the defaults.

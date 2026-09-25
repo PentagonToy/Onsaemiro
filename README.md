@@ -43,6 +43,17 @@ table.add_row("model", 0.018)
 table.show()
 ```
 
+Existing pandas and Polars DataFrames can be presented without rebuilding their rows:
+
+```python
+table = osm.Table.from_dataframe(
+    dataframe=summary_df,
+    title="Counterflow ranges",
+    formatters={"phi": ".2f", "eta_ref": ".4f"},
+)
+table.show()
+```
+
 Use `track()` for iterable work or update a progress object explicitly:
 
 ```python
