@@ -4,6 +4,8 @@ This changelog records user-visible Onsaemiro changes in reverse chronological o
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-09-27
+
 - `Table.from_dataframe()` now creates portable tables directly from pandas and Polars columns and rows, with optional column selection and existing `Table` formatters.
 - The default Science style now uses a `1.1`-point base stroke for slightly clearer axes, ticks, and plotted lines at single-column size.
 
