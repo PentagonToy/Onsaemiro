@@ -44,7 +44,7 @@ _JOURNAL_PRESETS = {
         "single": (2.24, 2.20),
         "double": (4.76, 3.40),
         "base_fontsize": 9.5,
-        "linewidth": 1.0,
+        "linewidth": 1.1,
     },
     "ieee": {
         "single": (3.50, 2.55),
@@ -68,7 +68,7 @@ def _compute_scale(fig_width: float, exponent: float = _SCALE_EXPONENT) -> float
 
 def set_style(
     base_fontsize: float = 9.5,
-    linewidth: float = 1.0,
+    linewidth: float = 1.1,
     figure_size: tuple[float, float] = (2.24, 2.20),
     subplot: Mapping[str, float] | None = None,
     use_tex: bool = False,

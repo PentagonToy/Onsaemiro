@@ -31,7 +31,7 @@ Onsaemiro keeps its public API small and leaves plotting operations to Matplotli
 ### `set_style`
 
 ```python
-set_style(base_fontsize=9.5, linewidth=1.0, figure_size=(2.24, 2.20), subplot=None, use_tex=False, auto_scale=False, scale_exponent=0.5, palette="okabe-ito") -> None
+set_style(base_fontsize=9.5, linewidth=1.1, figure_size=(2.24, 2.20), subplot=None, use_tex=False, auto_scale=False, scale_exponent=0.5, palette="okabe-ito") -> None
 ```
 
 Update Matplotlib's global presentation defaults. `base_fontsize` is the body-text size in points. `subplot` may override `left`, `bottom`, `right`, or `top`; `auto_scale=True` explicitly scales typography and strokes from the physical width.
@@ -39,7 +39,7 @@ Update Matplotlib's global presentation defaults. `base_fontsize` is the body-te
 | Parameter | Type | Default | Constraint or meaning |
 | --- | --- | --- | --- |
 | `base_fontsize` | `float` | `9.5` | Body-text size in points before optional width scaling |
-| `linewidth` | `float` | `1.0` | Base stroke width before optional scaling |
+| `linewidth` | `float` | `1.1` | Base stroke width before optional scaling |
 | `figure_size` | `tuple[float, float]` | `(2.24, 2.20)` | Width and height in inches |
 | `subplot` | mapping or `None` | `None` | Overrides fixed `left`, `bottom`, `right`, or `top` fractions |
 | `use_tex` | `bool` | `False` | Enable Matplotlib TeX rendering |

@@ -17,6 +17,8 @@ def test_default_style_uses_science_single_column():
     assert plt.rcParams["xtick.labelsize"] == 8.5
     assert plt.rcParams["legend.fontsize"] == 8.5
     assert plt.rcParams["lines.markersize"] == 7.125
+    assert plt.rcParams["axes.linewidth"] == 1.1
+    assert plt.rcParams["lines.linewidth"] == 1.1
     assert plt.rcParams["axes.xmargin"] == 0.05
     assert plt.rcParams["axes.ymargin"] == 0.05
     osm.reset_style()
